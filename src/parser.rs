@@ -261,7 +261,7 @@ mod tests {
                     TokenType::Whitespace,
                     TokenType::Whitespace,
                 ],
-                vec![TokenType::Whitespace,],
+                vec![TokenType::Whitespace],
                 vec![
                     TokenType::Whitespace,
                     TokenType::Whitespace,
