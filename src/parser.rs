@@ -1,5 +1,5 @@
-//! Contains `.torrent` parsing-related functions. See [parse] and it's returned
-//! [TorrentLine] vector for more infomation regarding torrent parsing.
+//! Contains `.torrent` (bencode) parsing-related functions. See [parse] and it's
+//! returned [BencodeLine] vector for more infomation regarding torrent parsing.
 
 /// Errors relating to parsing with [parse]/[parse_str]
 #[derive(Debug, PartialEq, Clone)]
@@ -28,12 +28,12 @@ pub enum ParseError {
     BadWhitespace,
 }
 
-/// Parsed torrent file line, containing a variety of outcomes
-pub enum TorrentLine {
+/// Parsed `.torrent` (bencode) file line, containing a variety of outcomes
+pub enum BencodeLine {
     /// Similar to a HashMap
-    Dict(Vec<(String, Box<TorrentLine>)>),
-    /// Array of lower-level [TorrentLine] instances
-    List(Vec<Box<TorrentLine>>),
+    Dict(Vec<(String, Box<BencodeLine>)>),
+    /// Array of lower-level [BencodeLine] instances
+    List(Vec<Box<BencodeLine>>),
     /// Integer
     Int(i32),
     /// String
@@ -179,8 +179,8 @@ fn decode_int(
     }
 }
 
-/// Parses `.torrent` file into a [TorrentLine] for each line
-pub fn parse(data: &str) -> Result<Vec<TorrentLine>, ParseError> {
+/// Parses `.torrent` (bencode) file into a [BencodeLine] for each line
+pub fn parse(data: &str) -> Result<Vec<BencodeLine>, ParseError> {
     let mut output_vec = vec![];
     let scanned_data = scan_data(data);
 
@@ -199,7 +199,7 @@ pub fn parse(data: &str) -> Result<Vec<TorrentLine>, ParseError> {
             match next_token {
                 TokenType::Int => {
                     line_iter.next();
-                    output_vec.push(TorrentLine::Int(decode_int(&mut line_iter)?));
+                    output_vec.push(BencodeLine::Int(decode_int(&mut line_iter)?));
                 }
                 _ => unimplemented!("This kind of token coming soon!"),
             }
@@ -210,7 +210,7 @@ pub fn parse(data: &str) -> Result<Vec<TorrentLine>, ParseError> {
 }
 
 /// Alias for [parse] which allows a [String] `data` rather than a &[str] `data`
-pub fn parse_str(data: String) -> Result<Vec<TorrentLine>, ParseError> {
+pub fn parse_str(data: String) -> Result<Vec<BencodeLine>, ParseError> {
     parse(&data)
 }
 
