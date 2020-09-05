@@ -17,6 +17,15 @@ pub enum ParseError {
 
     /// An integer block was left empty, e.g. `ie`
     NoIntGiven,
+
+    /// A `i-0e` was given (negative zero) which is not allowed by the spec
+    NegativeZero,
+
+    /// Zeros where given before any significant number, e.g. `i002e`
+    LeadingZeros,
+
+    /// Whitespace was given in an incorrect position, e.g. in middle of integer
+    BadWhitespace,
 }
 
 /// Parsed torrent file line, containing a variety of outcomes
@@ -42,6 +51,8 @@ enum TokenType {
     Dict,
     /// 'e' end char
     End,
+    /// ' '/space char, included as spec is strict on whitespace
+    Whitespace,
     /// ':' seperator char
     StringSep,
     /// Misc char used for data
@@ -55,6 +66,7 @@ impl From<TokenType> for char {
             TokenType::List => 'l',
             TokenType::Dict => 'd',
             TokenType::End => 'e',
+            TokenType::Whitespace => ' ',
             TokenType::StringSep => ':',
             TokenType::Char(c) => c,
         }
@@ -68,6 +80,7 @@ impl From<char> for TokenType {
             'l' => TokenType::List,
             'd' => TokenType::Dict,
             'e' => TokenType::End,
+            ' ' => TokenType::Whitespace,
             ':' => TokenType::StringSep,
             c => TokenType::Char(c),
         }
@@ -85,8 +98,6 @@ fn scan_data(data: &str) -> Vec<Vec<TokenType>> {
     for character in data.chars() {
         if character == '\n' {
             output_vec.push(vec![]);
-            continue;
-        } else if character == ' ' {
             continue;
         }
 
@@ -129,11 +140,16 @@ fn decode_int(
 
     let mut int_buf = String::with_capacity(tokens.len());
     let mut neg_number = false;
+    let mut leading_zero_check = false;
 
     for token in tokens {
-        if token == TokenType::Char('-') && int_buf.len() == 0 {
-            neg_number = true;
-            continue;
+        if int_buf.len() == 0 {
+            if token == TokenType::Char('-') {
+                neg_number = true;
+                continue;
+            } else if token == TokenType::Char('0') {
+                leading_zero_check = true;
+            }
         }
 
         match token {
@@ -141,17 +157,22 @@ fn decode_int(
                 '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => int_buf.push(c),
                 uc => return Err(ParseError::UnexpectedChar(uc)),
             },
+            TokenType::Whitespace => return Err(ParseError::BadWhitespace),
             _ => return Err(ParseError::UnexpectedChar(token.into())),
         }
     }
 
     if int_buf.len() == 0 {
         return Err(ParseError::NoIntGiven);
+    } else if leading_zero_check && int_buf.len() > 1 {
+        return Err(ParseError::LeadingZeros);
     }
 
     let parsed_int = int_buf.parse::<i32>().unwrap();
 
-    if neg_number {
+    if parsed_int == 0 && neg_number {
+        Err(ParseError::NegativeZero)
+    } else if neg_number {
         Ok(-parsed_int)
     } else {
         Ok(parsed_int)
@@ -234,7 +255,30 @@ mod tests {
     fn scan_newlines_whitespace() {
         assert_eq!(
             scan_data("   \n \n      i       "),
-            vec![vec![], vec![], vec![TokenType::Int]]
+            vec![
+                vec![
+                    TokenType::Whitespace,
+                    TokenType::Whitespace,
+                    TokenType::Whitespace,
+                ],
+                vec![TokenType::Whitespace,],
+                vec![
+                    TokenType::Whitespace,
+                    TokenType::Whitespace,
+                    TokenType::Whitespace,
+                    TokenType::Whitespace,
+                    TokenType::Whitespace,
+                    TokenType::Whitespace,
+                    TokenType::Int,
+                    TokenType::Whitespace,
+                    TokenType::Whitespace,
+                    TokenType::Whitespace,
+                    TokenType::Whitespace,
+                    TokenType::Whitespace,
+                    TokenType::Whitespace,
+                    TokenType::Whitespace,
+                ]
+            ]
         );
         assert_eq!(scan_data("\n"), vec![vec![], vec![]]);
     }
@@ -256,20 +300,20 @@ mod tests {
         );
         assert_eq!(
             decode_int(&mut scan_data("00234000e")[0].iter().peekable()),
-            Ok(234000)
+            Err(ParseError::LeadingZeros)
         );
         assert_eq!(decode_int(&mut scan_data("0e")[0].iter().peekable()), Ok(0));
         assert_eq!(
             decode_int(&mut scan_data("000000e")[0].iter().peekable()),
-            Ok(0)
+            Err(ParseError::LeadingZeros)
         );
         assert_eq!(
             decode_int(&mut scan_data("4 0 9 6e")[0].iter().peekable()),
-            Ok(4096)
+            Err(ParseError::BadWhitespace)
         );
         assert_eq!(
             decode_int(&mut scan_data("10 0  0e")[0].iter().peekable()),
-            Ok(1000)
+            Err(ParseError::BadWhitespace)
         );
         assert_eq!(
             decode_int(&mut scan_data("e")[0].iter().peekable()),
@@ -297,15 +341,15 @@ mod tests {
         );
         assert_eq!(
             decode_int(&mut scan_data("-0e")[0].iter().peekable()),
-            Ok(-0)
+            Err(ParseError::NegativeZero)
         );
         assert_eq!(
             decode_int(&mut scan_data("-000000e")[0].iter().peekable()),
-            Ok(-0)
+            Err(ParseError::LeadingZeros)
         );
         assert_eq!(
             decode_int(&mut scan_data("-00 3 2e")[0].iter().peekable()),
-            Ok(-32)
+            Err(ParseError::BadWhitespace)
         );
         assert_eq!(
             decode_int(&mut scan_data("-34-22-234e")[0].iter().peekable()),
