@@ -1,10 +1,19 @@
 //! Contains `.torrent` (bencode) parsing-related functions. See [parse] and it's
 //! returned [BencodeObj] vector for more infomation regarding torrent parsing.
 
+/// Control char for detecting int starts
 const INT_START: char = 'i';
+
+/// Control char for detecting list starts
 const LIST_START: char = 'l';
+
+/// Control char for detecting dict starts
 const DICT_START: char = 'd';
+
+/// Control char for detecting end of data structures
 const END: char = 'e';
+
+/// Control char for seperating string length number from contents
 const STR_SEP: char = ':';
 
 /// Errors relating to parsing with [parse]/[parse_str]
