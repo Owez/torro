@@ -26,10 +26,6 @@ pub enum ParseError {
 
     /// Whitespace was given in an incorrect position, e.g. in middle of integer
     BadWhitespace,
-
-    /// A negative integer was given for a unsigned integer. Note that negatives
-    /// are only typically allowed in an explicit `i0e` snum block
-    UnsignedNegativeInt,
 }
 
 /// Parsed `.torrent` (bencode) file line, containing a variety of outcomes
@@ -152,8 +148,6 @@ fn digitstr_from_token(token: TokenType) -> Result<char, ParseError> {
 fn decode_num(tokens: Vec<TokenType>) -> Result<u32, ParseError> {
     if tokens.len() == 0 {
         return Err(ParseError::NoIntGiven);
-    } else if tokens.first().unwrap() == &TokenType::Char('-') {
-        return Err(ParseError::UnsignedNegativeInt);
     }
 
     let numstring = tokens
@@ -299,7 +293,7 @@ mod tests {
     /// Checks the basic [decode_num] works correctly and in turn
     /// [digitstr_from_token] also works correctly
     #[test]
-    fn vec_nums() {
+    fn num_digest() {
         assert_eq!(
             decode_num(vec![
                 TokenType::Char('3'),
@@ -333,7 +327,7 @@ mod tests {
                 TokenType::Char('4'),
                 TokenType::Char('2')
             ]),
-            Err(ParseError::UnsignedNegativeInt)
+            Err(ParseError::UnexpectedChar('-'))
         );
     }
 
@@ -396,6 +390,10 @@ mod tests {
         assert_eq!(
             decode_int(&mut scan_data("i-0e")[0].iter().peekable()),
             Err(ParseError::NegativeZero)
+        );
+        assert_eq!(
+            decode_int(&mut scan_data("i--10e")[0].iter().peekable()),
+            Err(ParseError::UnexpectedChar('-'))
         );
         assert_eq!(
             decode_int(&mut scan_data("i-000000e")[0].iter().peekable()),
