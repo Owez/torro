@@ -443,4 +443,18 @@ mod tests {
             Ok(String::from("try4:to"))
         );
     }
+
+    /// Ensures that [parse] properly matches to the desired type
+    #[test]
+    fn parse_correctness() {
+        assert_eq!(parse("i32e"), Ok(vec![BencodeObj::Int(32)]));
+        assert_eq!(
+            parse("4:test8:working?i1e"),
+            Ok(vec![
+                BencodeObj::Str(String::from("test")),
+                BencodeObj::Str(String::from("working?")),
+                BencodeObj::Int(1)
+            ])
+        );
+    }
 }
