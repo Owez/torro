@@ -200,32 +200,38 @@ fn decode_str(
     Ok(output_str)
 }
 
+/// Matches next peeked token in `token_iter` and consumes it until a relevant
+/// data structure has been made
+fn match_next(
+    peeked_token: &TokenType,
+    token_iter: &mut std::iter::Peekable<std::slice::Iter<TokenType>>,
+) -> Result<BencodeObj, ParseError> {
+    match peeked_token {
+        TokenType::IntStart => Ok(BencodeObj::Int(decode_int(token_iter)?)),
+        TokenType::Char(c) => match c {
+            '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
+                Ok(BencodeObj::Str(decode_str(token_iter)?))
+            }
+            _ => return Err(ParseError::UnexpectedChar(*c)), // TODO better error
+        },
+        _ => unimplemented!("Found token not yet implemented"),
+    }
+}
+
 /// Parses `.torrent` (bencode) file into a [BencodeObj] for each line
 pub fn parse(data: &str) -> Result<Vec<BencodeObj>, ParseError> {
     let mut output_vec = vec![];
     let scanned_data = scan_data(data);
 
     let mut token_iter = scanned_data.iter().peekable();
-    // let mut char_ind: usize = 0;
 
     loop {
-        let next_token = match token_iter.peek() {
+        let peeked_token = match token_iter.peek() {
             Some(nt) => nt,
             None => break,
         };
 
-        match next_token {
-            TokenType::IntStart => {
-                output_vec.push(BencodeObj::Int(decode_int(&mut token_iter)?));
-            }
-            TokenType::Char(c) => match c {
-                '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
-                    output_vec.push(BencodeObj::Str(decode_str(&mut token_iter)?))
-                }
-                _ => return Err(ParseError::UnexpectedChar(*c)), // TODO better error
-            },
-            _ => unimplemented!("This kind of token coming soon!"),
-        }
+        output_vec.push(match_next(peeked_token, &mut token_iter)?);
     }
 
     Ok(output_vec)
