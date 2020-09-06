@@ -103,6 +103,50 @@ fn scan_data(data: &str) -> Vec<TokenType> {
     data.chars().map(|c| c.into()).collect()
 }
 
+/// Matches next peeked token in `token_iter` and consumes it until a relevant
+/// data structure has been made
+fn match_next_bencodeobj(
+    peeked_token: &TokenType,
+    token_iter: &mut std::iter::Peekable<std::slice::Iter<TokenType>>,
+) -> Result<BencodeObj, ParseError> {
+    match peeked_token {
+        TokenType::IntStart => Ok(BencodeObj::Int(decode_int(token_iter)?)),
+        TokenType::Char(c) => match c {
+            '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
+                Ok(BencodeObj::Str(decode_str(token_iter)?))
+            }
+            _ => return Err(ParseError::UnexpectedChar(*c)), // TODO better error
+        },
+        _ => unimplemented!("Found token not yet implemented"),
+    }
+}
+
+/// Similar to [read_until] but collects while [BencodeObj]s and then checks
+/// token after to see if it matches. Used throughout for lists and recusive
+/// sections
+fn match_until(
+    query: TokenType,
+    token_iter: &mut std::iter::Peekable<std::slice::Iter<TokenType>>,
+) -> Result<Vec<BencodeObj>, ParseError> {
+    let mut output_vec = vec![];
+    let mut peeked_token = match token_iter.peek() {
+        Some(p) => p,
+        None => return Err(ParseError::UnexpectedEOF),
+    };
+
+    while peeked_token != &&query {
+        output_vec.push(match_next_bencodeobj(peeked_token, token_iter)?);
+        peeked_token = match token_iter.peek() {
+            Some(p) => p,
+            None => return Err(ParseError::UnexpectedEOF),
+        };
+    }
+
+    token_iter.next(); // consume queried token
+
+    Ok(output_vec)
+}
+
 /// Iterates over token_iter and adds to output vec until query is found then
 /// returns (without adding last found token)
 fn read_until(
@@ -200,24 +244,6 @@ fn decode_str(
     Ok(output_str)
 }
 
-/// Matches next peeked token in `token_iter` and consumes it until a relevant
-/// data structure has been made
-fn match_next(
-    peeked_token: &TokenType,
-    token_iter: &mut std::iter::Peekable<std::slice::Iter<TokenType>>,
-) -> Result<BencodeObj, ParseError> {
-    match peeked_token {
-        TokenType::IntStart => Ok(BencodeObj::Int(decode_int(token_iter)?)),
-        TokenType::Char(c) => match c {
-            '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
-                Ok(BencodeObj::Str(decode_str(token_iter)?))
-            }
-            _ => return Err(ParseError::UnexpectedChar(*c)), // TODO better error
-        },
-        _ => unimplemented!("Found token not yet implemented"),
-    }
-}
-
 /// Parses `.torrent` (bencode) file into a [BencodeObj] for each line
 pub fn parse(data: &str) -> Result<Vec<BencodeObj>, ParseError> {
     let mut output_vec = vec![];
@@ -231,7 +257,7 @@ pub fn parse(data: &str) -> Result<Vec<BencodeObj>, ParseError> {
             None => break,
         };
 
-        output_vec.push(match_next(peeked_token, &mut token_iter)?);
+        output_vec.push(match_next_bencodeobj(peeked_token, &mut token_iter)?);
     }
 
     Ok(output_vec)
@@ -455,6 +481,18 @@ mod tests {
                 BencodeObj::Str(String::from("working?")),
                 BencodeObj::Int(1)
             ])
+        );
+    }
+
+    /// Check [match_until] works correctly
+    #[test]
+    fn check_match_until() {
+        assert_eq!(
+            match_until(
+                TokenType::End,
+                &mut scan_data("i32ei4546ee5:norun").iter().peekable()
+            ),
+            Ok(vec![BencodeObj::Int(32), BencodeObj::Int(4546)]) // only ints and dupe `e` consumed
         );
     }
 }
