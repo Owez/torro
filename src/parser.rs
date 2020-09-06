@@ -48,11 +48,11 @@ pub enum BencodeLine {
 #[derive(Debug, PartialEq, Clone)]
 enum TokenType {
     /// 'i' start char
-    Num,
+    NumStart,
     /// 'l' start char
-    List,
+    ListStart,
     /// 'd' start char
-    Dict,
+    DictStart,
     /// 'e' end char
     End,
     /// ' '/space char, included as spec is strict on whitespace
@@ -66,9 +66,9 @@ enum TokenType {
 impl From<TokenType> for char {
     fn from(token: TokenType) -> Self {
         match token {
-            TokenType::Num => 'i',
-            TokenType::List => 'l',
-            TokenType::Dict => 'd',
+            TokenType::NumStart => 'i',
+            TokenType::ListStart => 'l',
+            TokenType::DictStart => 'd',
             TokenType::End => 'e',
             TokenType::Whitespace => ' ',
             TokenType::StringSep => ':',
@@ -80,9 +80,9 @@ impl From<TokenType> for char {
 impl From<char> for TokenType {
     fn from(character: char) -> Self {
         match character {
-            'i' => TokenType::Num,
-            'l' => TokenType::List,
-            'd' => TokenType::Dict,
+            'i' => TokenType::NumStart,
+            'l' => TokenType::ListStart,
+            'd' => TokenType::DictStart,
             'e' => TokenType::End,
             ' ' => TokenType::Whitespace,
             ':' => TokenType::StringSep,
@@ -211,7 +211,7 @@ pub fn parse(data: &str) -> Result<Vec<BencodeLine>, ParseError> {
             };
 
             match next_token {
-                TokenType::Num => {
+                TokenType::NumStart => {
                     output_vec.push(BencodeLine::Num(decode_int(&mut line_iter)?));
                 }
                 _ => unimplemented!("This kind of token coming soon!"),
@@ -238,7 +238,7 @@ mod tests {
         assert_eq!(
             scan_data("i32e"),
             vec![vec![
-                TokenType::Num,
+                TokenType::NumStart,
                 TokenType::Char('3'),
                 TokenType::Char('2'),
                 TokenType::End
@@ -247,9 +247,9 @@ mod tests {
         assert_eq!(
             scan_data("ilde:_"),
             vec![vec![
-                TokenType::Num,
-                TokenType::List,
-                TokenType::Dict,
+                TokenType::NumStart,
+                TokenType::ListStart,
+                TokenType::DictStart,
                 TokenType::End,
                 TokenType::StringSep,
                 TokenType::Char('_')
@@ -282,7 +282,7 @@ mod tests {
                     TokenType::Whitespace,
                     TokenType::Whitespace,
                     TokenType::Whitespace,
-                    TokenType::Num,
+                    TokenType::NumStart,
                     TokenType::Whitespace,
                     TokenType::Whitespace,
                     TokenType::Whitespace,
