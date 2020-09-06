@@ -29,7 +29,7 @@ pub enum ParseError {
 
     /// A negative integer was given for a unsigned integer. Note that negatives
     /// are only typically allowed in an explicit `i0e` snum block
-    UnsignedIntNegative,
+    UnsignedNegativeInt,
 }
 
 /// Parsed `.torrent` (bencode) file line, containing a variety of outcomes
@@ -135,77 +135,61 @@ fn read_until(
     Ok(token_output)
 }
 
-/// Internal parsing/digesting for numbers that returns both the found result
-/// and a bool to indicate if it found a negative number
-///
-/// If used for unsigned ints, ensure [ParseError::UnsignedIntNegative] is declared
-fn parse_num(
-    line_iter: &mut std::iter::Peekable<std::slice::Iter<TokenType>>,
-) -> Result<(u32, bool), ParseError> {
-    let tokens = read_until(TokenType::End, line_iter)?;
+/// Matches a digit char to ensure it isn't incorrectly formatted
+fn digitstr_from_token(token: TokenType) -> Result<char, ParseError> {
+    match token {
+        TokenType::Char(c) => match c {
+            '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => Ok(c),
+            uc => Err(ParseError::UnexpectedChar(uc)),
+        },
+        TokenType::Whitespace => return Err(ParseError::BadWhitespace),
+        _ => Err(ParseError::UnexpectedChar(token.into())),
+    }
+}
 
-    let mut int_buf = String::with_capacity(tokens.len());
-    let mut neg_number = false;
-    let mut leading_zero_check = false;
-
-    for token in tokens {
-        if int_buf.len() == 0 {
-            if token == TokenType::Char('-') {
-                neg_number = true;
-                continue;
-            } else if token == TokenType::Char('0') {
-                leading_zero_check = true;
-            }
-        }
-
-        match token {
-            TokenType::Char(c) => match c {
-                '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => int_buf.push(c),
-                uc => return Err(ParseError::UnexpectedChar(uc)),
-            },
-            TokenType::Whitespace => return Err(ParseError::BadWhitespace),
-            _ => return Err(ParseError::UnexpectedChar(token.into())),
-        }
+/// Digests a [Vec] of [TokenType] into a basic number. See [decode_int] for
+/// signed, blocked `i-1e` version
+fn decode_num(tokens: Vec<TokenType>) -> Result<u32, ParseError> {
+    if tokens.len() == 0 {
+        return Err(ParseError::NoIntGiven);
+    } else if tokens.first().unwrap() == &TokenType::Char('-') {
+        return Err(ParseError::UnsignedNegativeInt);
     }
 
-    if int_buf.len() == 0 {
-        return Err(ParseError::NoIntGiven);
-    } else if leading_zero_check && int_buf.len() > 1 {
+    let numstring = tokens
+        .iter()
+        .map(|t| digitstr_from_token(t.clone()))
+        .collect::<Result<String, _>>()?;
+
+    if numstring.len() > 1 && numstring.chars().nth(0).unwrap() == '0' {
         return Err(ParseError::LeadingZeros);
     }
 
-    let parsed_int = int_buf.parse::<u32>().unwrap();
-    Ok((parsed_int, neg_number))
+    Ok(numstring.parse().unwrap())
 }
 
-/// Decodes signed integers using [decode_num] and optionally allowing negatives.
-/// This allows for essentially [u32] in both directions, leading to an overall
-/// [i64] used
-fn decode_snum(
+/// Decodes full int block which is an snum with `i` prefix and `e` char
+fn decode_int(
     line_iter: &mut std::iter::Peekable<std::slice::Iter<TokenType>>,
 ) -> Result<i64, ParseError> {
-    let (parsed_int, neg_number) = parse_num(line_iter)?;
+    line_iter.next(); // skip `i` prefix
 
-    if parsed_int == 0 && neg_number {
+    let mut tokens = read_until(TokenType::End, line_iter)?;
+    let mut neg_number = false;
+
+    if tokens.first() == Some(&TokenType::Char('-')) {
+        neg_number = true;
+        tokens.remove(0);
+    }
+
+    let parsed_num = decode_num(tokens)?;
+
+    if parsed_num == 0 && neg_number {
         Err(ParseError::NegativeZero)
     } else if neg_number {
-        Ok(-(parsed_int as i64))
+        Ok(-(parsed_num as i64))
     } else {
-        Ok(parsed_int as i64)
-    }
-}
-
-/// Decodes unsigned (0-*) numbers into a given [u32]. If a negative number is
-/// found, this will return [ParseError::UnsignedIntNegative]
-fn decode_num(
-    line_iter: &mut std::iter::Peekable<std::slice::Iter<TokenType>>,
-) -> Result<u32, ParseError> {
-    let (parsed_int, neg_number) = parse_num(line_iter)?;
-
-    if neg_number {
-        Err(ParseError::UnsignedIntNegative)
-    } else {
-        Ok(parsed_int)
+        Ok(parsed_num as i64)
     }
 }
 
@@ -228,8 +212,7 @@ pub fn parse(data: &str) -> Result<Vec<BencodeLine>, ParseError> {
 
             match next_token {
                 TokenType::Num => {
-                    line_iter.next();
-                    output_vec.push(BencodeLine::Num(decode_snum(&mut line_iter)?));
+                    output_vec.push(BencodeLine::Num(decode_int(&mut line_iter)?));
                 }
                 _ => unimplemented!("This kind of token coming soon!"),
             }
@@ -313,110 +296,122 @@ mod tests {
         assert_eq!(scan_data("\n"), vec![vec![], vec![]]);
     }
 
-    /// Checks positive snum digests
-    ///
-    /// Note that [decode_snum] doesn't consume preceding `i` so it is not included
-    /// in inputted strings
+    /// Checks the basic [decode_num] works correctly and in turn
+    /// [digitstr_from_token] also works correctly
     #[test]
-    fn snum_digest() {
+    fn vec_nums() {
         assert_eq!(
-            decode_snum(&mut scan_data("1e")[0].iter().peekable()),
-            Ok(1)
-        );
-        assert_eq!(
-            decode_snum(&mut scan_data("324e")[0].iter().peekable()),
-            Ok(324)
-        );
-        assert_eq!(
-            decode_snum(&mut scan_data("10000e")[0].iter().peekable()),
-            Ok(10000)
-        );
-        assert_eq!(
-            decode_snum(&mut scan_data("00234000e")[0].iter().peekable()),
-            Err(ParseError::LeadingZeros)
-        );
-        assert_eq!(
-            decode_snum(&mut scan_data("0e")[0].iter().peekable()),
-            Ok(0)
-        );
-        assert_eq!(
-            decode_snum(&mut scan_data("000000e")[0].iter().peekable()),
-            Err(ParseError::LeadingZeros)
-        );
-        assert_eq!(
-            decode_snum(&mut scan_data("4 0 9 6e")[0].iter().peekable()),
-            Err(ParseError::BadWhitespace)
-        );
-        assert_eq!(
-            decode_snum(&mut scan_data("10 0  0e")[0].iter().peekable()),
-            Err(ParseError::BadWhitespace)
-        );
-        assert_eq!(
-            decode_snum(&mut scan_data("e")[0].iter().peekable()),
-            Err(ParseError::NoIntGiven)
-        );
-    }
-
-    /// Checks negative snum digests
-    ///
-    /// Note that [decode_snum] doesn't consume preceding `i` so it is not included
-    /// in inputted strings
-    #[test]
-    fn neg_snum_digest() {
-        assert_eq!(
-            decode_snum(&mut scan_data("-1e")[0].iter().peekable()),
-            Ok(-1)
-        );
-        assert_eq!(
-            decode_snum(&mut scan_data("-324e")[0].iter().peekable()),
-            Ok(-324)
-        );
-        assert_eq!(
-            decode_snum(&mut scan_data("-10000e")[0].iter().peekable()),
-            Ok(-10000)
-        );
-        assert_eq!(
-            decode_snum(&mut scan_data("-0e")[0].iter().peekable()),
-            Err(ParseError::NegativeZero)
-        );
-        assert_eq!(
-            decode_snum(&mut scan_data("-000000e")[0].iter().peekable()),
-            Err(ParseError::LeadingZeros)
-        );
-        assert_eq!(
-            decode_snum(&mut scan_data("-00 3 2e")[0].iter().peekable()),
-            Err(ParseError::BadWhitespace)
-        );
-        assert_eq!(
-            decode_snum(&mut scan_data("-34-22-234e")[0].iter().peekable()),
-            Err(ParseError::UnexpectedChar('-'))
-        );
-        assert_eq!(
-            decode_snum(&mut scan_data("-e")[0].iter().peekable()),
-            Err(ParseError::NoIntGiven)
-        );
-    }
-
-    /// Checks [decode_num] integer digestion for unsigned ints and that it
-    /// properly errors for negatives
-    #[test]
-    fn num_digest() {
-        assert_eq!(
-            decode_num(&mut scan_data("342e")[0].iter().peekable()),
+            decode_num(vec![
+                TokenType::Char('3'),
+                TokenType::Char('4'),
+                TokenType::Char('2')
+            ]),
             Ok(342)
         );
-        assert_eq!(decode_num(&mut scan_data("0e")[0].iter().peekable()), Ok(0));
+        assert_eq!(decode_num(vec![TokenType::Char('0')]), Ok(0));
         assert_eq!(
-            decode_num(&mut scan_data("10000000e")[0].iter().peekable()),
+            decode_num(vec![
+                TokenType::Char('1'),
+                TokenType::Char('0'),
+                TokenType::Char('0'),
+                TokenType::Char('0'),
+                TokenType::Char('0'),
+                TokenType::Char('0'),
+                TokenType::Char('0'),
+                TokenType::Char('0')
+            ]),
             Ok(10000000)
         );
         assert_eq!(
-            decode_num(&mut scan_data("00e")[0].iter().peekable()),
+            decode_num(vec![TokenType::Char('0'), TokenType::Char('0')]),
             Err(ParseError::LeadingZeros)
         );
         assert_eq!(
-            decode_num(&mut scan_data("-342e")[0].iter().peekable()),
-            Err(ParseError::UnsignedIntNegative)
+            decode_num(vec![
+                TokenType::Char('-'),
+                TokenType::Char('3'),
+                TokenType::Char('4'),
+                TokenType::Char('2')
+            ]),
+            Err(ParseError::UnsignedNegativeInt)
+        );
+    }
+
+    /// Checks positive int digests
+    #[test]
+    fn int_digest() {
+        assert_eq!(
+            decode_int(&mut scan_data("i1e")[0].iter().peekable()),
+            Ok(1)
+        );
+        assert_eq!(
+            decode_int(&mut scan_data("i324e")[0].iter().peekable()),
+            Ok(324)
+        );
+        assert_eq!(
+            decode_int(&mut scan_data("i10000e")[0].iter().peekable()),
+            Ok(10000)
+        );
+        assert_eq!(
+            decode_int(&mut scan_data("i00234000e")[0].iter().peekable()),
+            Err(ParseError::LeadingZeros)
+        );
+        assert_eq!(
+            decode_int(&mut scan_data("i0e")[0].iter().peekable()),
+            Ok(0)
+        );
+        assert_eq!(
+            decode_int(&mut scan_data("i000000e")[0].iter().peekable()),
+            Err(ParseError::LeadingZeros)
+        );
+        assert_eq!(
+            decode_int(&mut scan_data("i4 0 9 6e")[0].iter().peekable()),
+            Err(ParseError::BadWhitespace)
+        );
+        assert_eq!(
+            decode_int(&mut scan_data("i10 0  0e")[0].iter().peekable()),
+            Err(ParseError::BadWhitespace)
+        );
+        assert_eq!(
+            decode_int(&mut scan_data("ie")[0].iter().peekable()),
+            Err(ParseError::NoIntGiven)
+        );
+    }
+
+    /// Checks negative int digests
+    #[test]
+    fn neg_int_digest() {
+        assert_eq!(
+            decode_int(&mut scan_data("i-1e")[0].iter().peekable()),
+            Ok(-1)
+        );
+        assert_eq!(
+            decode_int(&mut scan_data("i-324e")[0].iter().peekable()),
+            Ok(-324)
+        );
+        assert_eq!(
+            decode_int(&mut scan_data("i-10000e")[0].iter().peekable()),
+            Ok(-10000)
+        );
+        assert_eq!(
+            decode_int(&mut scan_data("i-0e")[0].iter().peekable()),
+            Err(ParseError::NegativeZero)
+        );
+        assert_eq!(
+            decode_int(&mut scan_data("i-000000e")[0].iter().peekable()),
+            Err(ParseError::LeadingZeros)
+        );
+        assert_eq!(
+            decode_int(&mut scan_data("i-00 3 2e")[0].iter().peekable()),
+            Err(ParseError::BadWhitespace)
+        );
+        assert_eq!(
+            decode_int(&mut scan_data("i-34-22-234e")[0].iter().peekable()),
+            Err(ParseError::UnexpectedChar('-'))
+        );
+        assert_eq!(
+            decode_int(&mut scan_data("i-e")[0].iter().peekable()),
+            Err(ParseError::NoIntGiven)
         );
     }
 }
