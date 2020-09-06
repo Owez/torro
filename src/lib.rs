@@ -11,7 +11,7 @@
 //!
 //! | Module name             | About                                                                        |
 //! |-------------------------|------------------------------------------------------------------------------|
-//! | [Parser](crate::parser) | `.torrent` (bencode) parser core, used to interpret downloaded torrent files |
+//! | [parser](crate::parser) | `.torrent` (bencode) parser core, used to interpret downloaded torrent files |
 
 pub mod parser;
 mod utils;
