@@ -44,14 +44,14 @@ mod tests {
     /// Checks that multiple calls to [xorshift128] don't result in same number
     #[test]
     fn xorshift128_nodupe() {
-        for _ in 0..150 {
+        for _ in 0..1000 {
             assert_ne!(randish(), randish());
         }
     }
 
     #[test]
     fn check_torro_id() {
-        for _ in 0..150 {
+        for _ in 0..1000 {
             assert_eq!(generate_torro_id().len(), 20);
         }
     }
