@@ -49,7 +49,7 @@ pub enum BencodeObj {
     /// Array of lower-level [BencodeObj] instances
     List(Vec<Box<BencodeObj>>),
     /// Number (can be either num or snum, both fit into [i64])
-    Num(i64),
+    Int(i64),
     /// String
     Str(String),
 }
@@ -216,7 +216,7 @@ pub fn parse(data: &str) -> Result<Vec<BencodeObj>, ParseError> {
 
         match next_token {
             TokenType::IntStart => {
-                output_vec.push(BencodeObj::Num(decode_int(&mut token_iter)?));
+                output_vec.push(BencodeObj::Int(decode_int(&mut token_iter)?));
             }
             TokenType::Char(c) => match c {
                 '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
