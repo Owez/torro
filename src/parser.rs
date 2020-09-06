@@ -187,6 +187,24 @@ fn decode_int(
     }
 }
 
+/// Decodes string using unsigned/basic [decode_num] and counts chars until it
+/// is satisfied or [ParseError::UnexpectedEOF]
+fn decode_str(
+    line_iter: &mut std::iter::Peekable<std::slice::Iter<TokenType>>,
+) -> Result<String, ParseError> {
+    let prefix_num = decode_num(read_until(TokenType::StringSep, line_iter)?)?;
+    let mut output_str = String::with_capacity(prefix_num as usize);
+
+    for _ in 0..prefix_num {
+        output_str.push(match line_iter.next() {
+            Some(c) => c.clone().into(),
+            None => return Err(ParseError::UnexpectedEOF),
+        });
+    }
+
+    Ok(output_str)
+}
+
 /// Parses `.torrent` (bencode) file into a [BencodeLine] for each line
 pub fn parse(data: &str) -> Result<Vec<BencodeLine>, ParseError> {
     let mut output_vec = vec![];
@@ -208,6 +226,12 @@ pub fn parse(data: &str) -> Result<Vec<BencodeLine>, ParseError> {
                 TokenType::NumStart => {
                     output_vec.push(BencodeLine::Num(decode_int(&mut line_iter)?));
                 }
+                TokenType::Char(c) => match c {
+                    '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
+                        output_vec.push(BencodeLine::Str(decode_str(&mut line_iter)?))
+                    }
+                    _ => return Err(ParseError::UnexpectedChar(*c)), // TODO better error
+                },
                 _ => unimplemented!("This kind of token coming soon!"),
             }
         }
@@ -410,6 +434,27 @@ mod tests {
         assert_eq!(
             decode_int(&mut scan_data("i-e")[0].iter().peekable()),
             Err(ParseError::NoIntGiven)
+        );
+    }
+
+    /// Checks that [decode_str] (string decoding) is working correctly
+    #[test]
+    fn str_parsing() {
+        assert_eq!(
+            decode_str(&mut scan_data("4:test")[0].iter().peekable()),
+            Ok(String::from("test"))
+        );
+        assert_eq!(
+            decode_str(&mut scan_data("0:")[0].iter().peekable()),
+            Ok(String::from(""))
+        );
+        assert_eq!(
+            decode_str(&mut scan_data("1:f")[0].iter().peekable()),
+            Ok(String::from("f"))
+        );
+        assert_eq!(
+            decode_str(&mut scan_data("7:try4:toerror")[0].iter().peekable()),
+            Ok(String::from("try4:to"))
         );
     }
 }
