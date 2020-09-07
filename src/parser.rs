@@ -504,4 +504,18 @@ mod tests {
             Ok(vec![BencodeObj::Int(32), BencodeObj::Int(4546)]) // only ints and dupe `e` consumed
         );
     }
+
+    /// Checks that lists work correctly
+    #[test]
+    fn list_parsing() {
+        assert_eq!(
+            decode_list(&mut scan_data("li60e4:test4:cooli0ee").iter().peekable()),
+            Ok(vec![
+                BencodeObj::Int(60),
+                BencodeObj::Str(String::from("test")),
+                BencodeObj::Str(String::from("cool")),
+                BencodeObj::Int(0)
+            ])
+        )
+    }
 }
