@@ -47,7 +47,7 @@ pub enum BencodeObj {
     /// Similar to a HashMap
     Dict(Vec<(String, Box<BencodeObj>)>),
     /// Array of lower-level [BencodeObj] instances
-    List(Vec<Box<BencodeObj>>),
+    List(Vec<BencodeObj>),
     /// Number (can be either num or snum, both fit into [i64])
     Int(i64),
     /// String
@@ -111,13 +111,14 @@ fn match_next_bencodeobj(
 ) -> Result<BencodeObj, ParseError> {
     match peeked_token {
         TokenType::IntStart => Ok(BencodeObj::Int(decode_int(token_iter)?)),
+        TokenType::ListStart => Ok(BencodeObj::List(decode_list(token_iter)?)),
         TokenType::Char(c) => match c {
             '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
                 Ok(BencodeObj::Str(decode_str(token_iter)?))
             }
             _ => return Err(ParseError::UnexpectedChar(*c)), // TODO better error
         },
-        _ => unimplemented!("Found token not yet implemented"),
+        _ => unimplemented!(),
     }
 }
 
@@ -242,6 +243,14 @@ fn decode_str(
     }
 
     Ok(output_str)
+}
+
+/// Decodes list by recursively decending through other bencode objects
+fn decode_list(
+    token_iter: &mut std::iter::Peekable<std::slice::Iter<TokenType>>,
+) -> Result<Vec<BencodeObj>, ParseError> {
+    token_iter.next(); // skip `l` prefix
+    match_until(TokenType::End, token_iter)
 }
 
 /// Parses `.torrent` (bencode) file into a [BencodeObj] for each line
