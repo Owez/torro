@@ -114,7 +114,7 @@ fn match_next_bencodeobj(
         TokenType::ListStart => Ok(BencodeObj::List(decode_list(token_iter)?)),
         TokenType::Char(c) => match c {
             '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
-                Ok(BencodeObj::ByteString(decode_str(token_iter)?))
+                Ok(BencodeObj::ByteString(decode_bytestring(token_iter)?))
             }
             _ => return Err(ParseError::UnexpectedChar(*c)), // TODO better error
         },
@@ -229,20 +229,20 @@ fn decode_int(
 
 /// Decodes string using unsigned/basic [decode_num] and counts chars until it
 /// is satisfied or [ParseError::UnexpectedEOF]
-fn decode_str(
+fn decode_bytestring(
     token_iter: &mut std::iter::Peekable<std::slice::Iter<TokenType>>,
 ) -> Result<Vec<u8>, ParseError> {
     let prefix_num = decode_num(read_until(TokenType::StringSep, token_iter)?)?;
-    let mut output_charvec: Vec<u8> = Vec::with_capacity(token_iter.len());
+    let mut output_bytevec: Vec<u8> = Vec::with_capacity(token_iter.len());
 
     for _ in 0..prefix_num {
-        output_charvec.push(match token_iter.next() {
+        output_bytevec.push(match token_iter.next() {
             Some(c) => char::from(c.clone()) as u8,
             None => return Err(ParseError::UnexpectedEOF),
         });
     }
 
-    Ok(output_charvec)
+    Ok(output_bytevec)
 }
 
 /// Decodes list by recursively decending through other bencode objects
@@ -458,23 +458,23 @@ mod tests {
         );
     }
 
-    /// Checks that [decode_str] (string decoding) is working correctly
+    /// Checks that [decode_bytestring] (bytestring decoding) is working correctly
     #[test]
     fn str_parsing() {
         assert_eq!(
-            decode_str(&mut scan_data("4:test").iter().peekable()),
+            decode_bytestring(&mut scan_data("4:test").iter().peekable()),
             Ok("test".into())
         );
         assert_eq!(
-            decode_str(&mut scan_data("0:").iter().peekable()),
+            decode_bytestring(&mut scan_data("0:").iter().peekable()),
             Ok(vec![])
         );
         assert_eq!(
-            decode_str(&mut scan_data("1:f").iter().peekable()),
+            decode_bytestring(&mut scan_data("1:f").iter().peekable()),
             Ok("f".into())
         );
         assert_eq!(
-            decode_str(&mut scan_data("7:try4:toerror").iter().peekable()),
+            decode_bytestring(&mut scan_data("7:try4:toerror").iter().peekable()),
             Ok("try4:to".into())
         );
     }
