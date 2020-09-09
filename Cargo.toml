@@ -1,6 +1,6 @@
 [package]
 name = "torro"
-description = "An easy-to-use BitTorrent library"
+description = "A correct and easy-to-use BitTorrent library"
 repository = "https://github.com/owez/torro"
 version = "0.0.0"
 authors = ["Owez <root@ogriffiths.com>"]
