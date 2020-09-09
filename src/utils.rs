@@ -5,10 +5,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Pseudorandom time-based 1 pass xorshift
 ///
-/// **Do not use this function for crpytographically secure usages or anywhere
-/// where leaking of creation date is unwelcome. If this is used inside of a
-/// public ID, create a new one for each torrent, not a single id for entire
-/// lifetime of client**
+/// # Usage notice
+///
+/// Do not use this function for crpytographically secure usages or anywhere
+/// where leaking of creation date is unwelcome.
+///
+/// If this is used inside of a public ID, create a new one for each torrent,
+/// not a single id for entire lifetime of client
 pub fn randish() -> u128 {
     let mut seed = SystemTime::now()
         .duration_since(UNIX_EPOCH)
