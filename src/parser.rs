@@ -50,8 +50,8 @@ pub enum BencodeObj {
     List(Vec<BencodeObj>),
     /// Number (can be either num or snum, both fit into [i64])
     Int(i64),
-    /// String
-    Str(String),
+    /// Byte string
+    ByteString(Vec<u8>),
 }
 
 /// Internal types for tokens in scanner
@@ -114,7 +114,7 @@ fn match_next_bencodeobj(
         TokenType::ListStart => Ok(BencodeObj::List(decode_list(token_iter)?)),
         TokenType::Char(c) => match c {
             '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
-                Ok(BencodeObj::Str(decode_str(token_iter)?))
+                Ok(BencodeObj::ByteString(decode_str(token_iter)?))
             }
             _ => return Err(ParseError::UnexpectedChar(*c)), // TODO better error
         },
@@ -231,18 +231,18 @@ fn decode_int(
 /// is satisfied or [ParseError::UnexpectedEOF]
 fn decode_str(
     token_iter: &mut std::iter::Peekable<std::slice::Iter<TokenType>>,
-) -> Result<String, ParseError> {
+) -> Result<Vec<u8>, ParseError> {
     let prefix_num = decode_num(read_until(TokenType::StringSep, token_iter)?)?;
-    let mut output_str = String::with_capacity(prefix_num as usize);
+    let mut output_charvec: Vec<u8> = Vec::with_capacity(token_iter.len());
 
     for _ in 0..prefix_num {
-        output_str.push(match token_iter.next() {
-            Some(c) => c.clone().into(),
+        output_charvec.push(match token_iter.next() {
+            Some(c) => char::from(c.clone()) as u8,
             None => return Err(ParseError::UnexpectedEOF),
         });
     }
 
-    Ok(output_str)
+    Ok(output_charvec)
 }
 
 /// Decodes list by recursively decending through other bencode objects
@@ -463,19 +463,19 @@ mod tests {
     fn str_parsing() {
         assert_eq!(
             decode_str(&mut scan_data("4:test").iter().peekable()),
-            Ok(String::from("test"))
+            Ok("test".into())
         );
         assert_eq!(
             decode_str(&mut scan_data("0:").iter().peekable()),
-            Ok(String::from(""))
+            Ok(vec![])
         );
         assert_eq!(
             decode_str(&mut scan_data("1:f").iter().peekable()),
-            Ok(String::from("f"))
+            Ok("f".into())
         );
         assert_eq!(
             decode_str(&mut scan_data("7:try4:toerror").iter().peekable()),
-            Ok(String::from("try4:to"))
+            Ok("try4:to".into())
         );
     }
 
@@ -486,8 +486,8 @@ mod tests {
         assert_eq!(
             parse("4:test8:working?i1e"),
             Ok(vec![
-                BencodeObj::Str(String::from("test")),
-                BencodeObj::Str(String::from("working?")),
+                BencodeObj::ByteString("test".into()),
+                BencodeObj::ByteString("working?".into()),
                 BencodeObj::Int(1)
             ])
         );
@@ -512,8 +512,8 @@ mod tests {
             decode_list(&mut scan_data("li60e4:test4:cooli0ee").iter().peekable()),
             Ok(vec![
                 BencodeObj::Int(60),
-                BencodeObj::Str(String::from("test")),
-                BencodeObj::Str(String::from("cool")),
+                BencodeObj::ByteString("test".into()),
+                BencodeObj::ByteString("cool".into()),
                 BencodeObj::Int(0)
             ])
         )
