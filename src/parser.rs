@@ -1,8 +1,6 @@
-//! Contains `.torrent` (bencode) parsing-related functions. See [parse] or it's
-//! returned [Torrent] structure (contained at the root level of
-//! torro) for more infomation regarding torrent parsing.
+//! Contains `.torrent` (bencode) parsing-related functions
 
-use crate::Torrent;
+use crate::torrent::Torrent;
 
 /// Control char for detecting int starts
 const INT_START: char = 'i';
