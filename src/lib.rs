@@ -23,6 +23,21 @@ mod utils;
 /// is advised to change this**
 pub const CLIENT_PREFIX: &str = "TO";
 
+/// Represents the overall torrent directory structure for a given [Torrent]
+///
+/// This merges the [BEP0003](https://www.bittorrent.org/beps/bep_0003.html) spec
+/// of either a single `length` for a file given or a list of dictionaries into
+/// this singular enum for easier comprehension
+pub enum TorrentFile {
+    /// A single file with a [usize] determining it's length in bytes (`1` in
+    /// usize == 1 byte)
+    Single(usize),
+
+    /// Multiple files with a similar [usize] but also a path that decends into
+    /// the [Torrent::name] directory
+    MultiFile(Vec<(usize, String)>),
+}
+
 /// The primary representation of a torrent, created from the [parse](crate::parser::parse)
 /// function. This representation is used to interact with many parts of torro.
 ///
@@ -78,6 +93,35 @@ pub struct Torrent {
     /// the piece at the corresponding index.
     /// ```
     pub pieces: Vec<String>,
-    
-    // TODO: Finish adding values from https://www.bittorrent.org/beps/bep_0003.html
+
+    /// The overall file structure of the torrent, see the [TorrentFile] enum for
+    /// more infomation
+    ///
+    /// # BitTorrent Description
+    ///
+    /// *We have merged the two options into a single enum for easier digesting
+    /// inside of Rust*
+    ///
+    /// ```none
+    /// There is also a key length or a key files, but not both or neither. If
+    /// length is present then the download represents a single file, otherwise
+    /// it represents a set of files which go in a directory structure.
+    ///
+    /// In the single file case, length maps to the length of the file in bytes.
+    ///
+    /// For the purposes of the other keys, the multi-file case is treated as
+    /// only having a single file by concatenating the files in the order they
+    /// appear in the files list. The files list is the value files maps to, and
+    /// is a list of dictionaries containing the following keys:
+    ///
+    /// length - The length of the file, in bytes.
+    ///
+    /// path - A list of UTF-8 encoded strings corresponding to subdirectory names,
+    /// the last of which is the actual file name (a zero length list is an error
+    /// case).
+    ///
+    /// In the single file case, the name key is the name of a file, in the
+    /// muliple file case, it's the name of a directory.
+    /// ```
+    pub file_structure: TorrentFile,
 }
