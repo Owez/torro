@@ -1,4 +1,4 @@
-//! Contains [Torrent] and [TorrentFile] used as a key to interact with other parts of torro
+//! Contains the main [Torrent] structure used as a "key" to interact with other parts of torro
 
 /// Represents the overall torrent directory structure for a given [Torrent]
 ///
@@ -15,8 +15,9 @@ pub enum TorrentFile {
     MultiFile(Vec<(usize, String)>),
 }
 
-/// The primary representation of a torrent, created from the [parse](crate::parser::parse)
-/// function. This representation is used to interact with many parts of torro.
+/// The primary representation of a torrent, created from a parsing function
+/// like [bencode::parse](crate::bencode::parse). This representation is used to
+/// interact with many parts of torro.
 ///
 /// *All "BitTorrent Description" headings are taken from
 /// [BEP0003](https://www.bittorrent.org/beps/bep_0003.html) and is subject to

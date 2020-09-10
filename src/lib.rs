@@ -16,17 +16,16 @@
 //!
 //! ## First Steps
 //!
-//! 1. You should first create a [Torrent](crate::torrent::Torrent) structure by
-//! using the [parse](crate::parser::parse) function by inputting a `.torrent`
-//! file as a plain string (or use [parse_str](crate::parser::parse_str) to use
-//! a [String]).
-//! 2. Once you have a [Torrent](crate::torrent::Torrent), you have access to
-//! other parts of torro like **`COMING SOON`** or **`COMING SOON`**.
+//! 1. You should first create a [torrent::Torrent] structure by using a parsing
+//! function like [bencode::parse] by inputting a `.torrent` file as a plain
+//! string.
+//! 2. Once you have a [torrent::Torrent], you have access to other parts of torro
+//! like **`COMING SOON`** or **`COMING SOON`**.
 
 mod utils;
 
-pub mod parser;
 pub mod torrent;
+pub mod bencode;
 
 /// [BitTorrent prefix](https://wiki.theory.org/BitTorrentSpecification#peer_id)
 /// for all torro-based clients.

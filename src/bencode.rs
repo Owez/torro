@@ -17,7 +17,7 @@ const END: char = 'e';
 /// Control char for seperating string length number from contents
 const STR_SEP: char = ':';
 
-/// Errors relating to parsing with [parse]/[parse_str]
+/// Errors relating to parsing from primarily [parse] or [parse_str]
 #[derive(Debug, PartialEq, Clone)]
 pub enum ParseError {
     /// When the file ends prematurely without stopping (more specific
