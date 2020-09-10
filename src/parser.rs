@@ -1,5 +1,8 @@
-//! Contains `.torrent` (bencode) parsing-related functions. See [parse] and it's
-//! returned [BencodeObj] vector for more infomation regarding torrent parsing.
+//! Contains `.torrent` (bencode) parsing-related functions. See [parse] or it's
+//! returned [Torrent] structure (contained at the root level of
+//! torro) for more infomation regarding torrent parsing.
+
+use crate::Torrent;
 
 /// Control char for detecting int starts
 const INT_START: char = 'i';
@@ -41,7 +44,9 @@ pub enum ParseError {
     LeadingZeros,
 }
 
-/// Parsed `.torrent` (bencode) file line, containing a variety of outcomes
+/// Parsed `.torrent` (bencode) file line, containing a variety of outcomes. This
+/// is only used internally, see [Torrent] for publically
+/// returned parsing
 #[derive(Debug, PartialEq, Clone)]
 pub enum BencodeObj {
     /// Similar to a HashMap
@@ -129,14 +134,14 @@ fn match_until(
     query: TokenType,
     token_iter: &mut std::iter::Peekable<std::slice::Iter<TokenType>>,
 ) -> Result<Vec<BencodeObj>, ParseError> {
-    let mut output_vec = vec![];
+    let mut bencode_vec = vec![];
     let mut peeked_token = match token_iter.peek() {
         Some(p) => p,
         None => return Err(ParseError::UnexpectedEOF),
     };
 
     while peeked_token != &&query {
-        output_vec.push(match_next_bencodeobj(peeked_token, token_iter)?);
+        bencode_vec.push(match_next_bencodeobj(peeked_token, token_iter)?);
         peeked_token = match token_iter.peek() {
             Some(p) => p,
             None => return Err(ParseError::UnexpectedEOF),
@@ -145,7 +150,7 @@ fn match_until(
 
     token_iter.next(); // consume queried token
 
-    Ok(output_vec)
+    Ok(bencode_vec)
 }
 
 /// Iterates over token_iter and adds to output vec until query is found then
@@ -254,8 +259,10 @@ fn decode_list(
 }
 
 /// Parses `.torrent` (bencode) file into a [BencodeObj] for each line
-pub fn parse(data: &str) -> Result<Vec<BencodeObj>, ParseError> {
-    let mut output_vec = vec![];
+///
+/// **See [parse] or [parse_str] if you'd like to parse into [Torrent]s**
+pub fn parse_to_bencodeobj(data: &str) -> Result<Vec<BencodeObj>, ParseError> {
+    let mut bencode_vec = vec![];
     let scanned_data = scan_data(data);
 
     let mut token_iter = scanned_data.iter().peekable();
@@ -266,14 +273,20 @@ pub fn parse(data: &str) -> Result<Vec<BencodeObj>, ParseError> {
             None => break,
         };
 
-        output_vec.push(match_next_bencodeobj(peeked_token, &mut token_iter)?);
+        bencode_vec.push(match_next_bencodeobj(peeked_token, &mut token_iter)?);
     }
 
-    Ok(output_vec)
+    Ok(bencode_vec)
+}
+
+/// Creates a [Torrent] from given data by piping results from [parse_to_bencodeobj]
+/// into a new [Torrent] structure
+pub fn parse(data: &str) -> Result<Torrent, ParseError> {
+    unimplemented!();
 }
 
 /// Alias for [parse] which allows a [String] `data` rather than a &[str] `data`
-pub fn parse_str(data: String) -> Result<Vec<BencodeObj>, ParseError> {
+pub fn parse_str(data: String) -> Result<Torrent, ParseError> {
     parse(&data)
 }
 
@@ -479,12 +492,12 @@ mod tests {
         );
     }
 
-    /// Ensures that [parse] properly matches to the desired type
+    /// Ensures that [parse_to_bencodeobj] properly matches to the desired type
     #[test]
-    fn parse_correctness() {
-        assert_eq!(parse("i32e"), Ok(vec![BencodeObj::Int(32)]));
+    fn parse_bencodeobj_correctness() {
+        assert_eq!(parse_to_bencodeobj("i32e"), Ok(vec![BencodeObj::Int(32)]));
         assert_eq!(
-            parse("4:test8:working?i1e"),
+            parse_to_bencodeobj("4:test8:working?i1e"),
             Ok(vec![
                 BencodeObj::ByteString("test".into()),
                 BencodeObj::ByteString("working?".into()),
