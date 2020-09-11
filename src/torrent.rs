@@ -1,5 +1,8 @@
 //! Contains the main [Torrent] structure used as a "key" to interact with other parts of torro
 
+use crate::bencode;
+use std::path::PathBuf;
+
 /// Represents the overall torrent directory structure for a given [Torrent]
 ///
 /// This merges the [BEP0003](https://www.bittorrent.org/beps/bep_0003.html) spec
@@ -102,4 +105,25 @@ pub struct Torrent {
     /// muliple file case, it's the name of a directory.
     /// ```
     pub file_structure: TorrentFile,
+}
+
+impl Torrent {
+    /// Creates a new [Torrent] from given `torrent_data` formatted as [Vec]<[u8]>
+    ///
+    /// This uses [bencode::parse] to parse bencode (torrent_data/`.torrent`) but
+    /// converts it's output into a simplified [Torrent]
+    pub fn new(torrent_data: Vec<u8>) -> Result<Self, bencode::ParseError> {
+        let parsed_bencode = bencode::parse(torrent_data)?;
+
+        unimplemented!();
+    }
+
+
+    /// Creates a new [Torrent] from given `.torrent` path
+    /// 
+    /// This reads a file into bytes ([Vec]<[u8]>) and pipes into [Torrent::new]
+    pub fn from_path(path: PathBuf) -> Result<Self, ()> {
+        // TODO: make error.rs and move errors enums to it
+        unimplemented!();
+    }
 }
