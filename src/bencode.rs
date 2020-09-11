@@ -120,7 +120,7 @@ fn decode_num(bytes: Vec<u8>, byte_ind: usize) -> Result<u32, ParseError> {
     }
 }
 
-/// Decode a full signed integer value using [decode_num] and adding minuses
+/// Decodes a full signed integer value using [decode_num] and adding minuses
 fn decode_int(
     bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
     byte_ind: usize,
