@@ -23,14 +23,12 @@ pub enum TorrentFile {
 /// like [bencode::parse](crate::bencode::parse). This representation is used to
 /// interact with many parts of torro.
 ///
-/// If you wish to use torro without using this [Torrent] structure, you may use
-/// the publically exposed lower-level functions not attached to this structure
-/// like [bencode::parse]
+/// ## Documentation sourcing
 ///
-/// *All "BitTorrent Description" headings are taken from
+/// All "BitTorrent Description" headings are taken from
 /// [BEP0003](https://www.bittorrent.org/beps/bep_0003.html) and is subject to
 /// change, like any moving standard. This documentation is based off of version
-/// `0e08ddf84d8d3bf101cdf897fc312f2774588c9e`*
+/// `0e08ddf84d8d3bf101cdf897fc312f2774588c9e`
 pub struct Torrent {
     /// URL for tracker
     ///
