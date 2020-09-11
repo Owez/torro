@@ -1,532 +1,325 @@
-//! Contains `.torrent` (bencode) parsing-related functions
+//! Contains bencode parsing-related functions used inside of
+//! [Torrent::new](crate::torrent::Torrent::new) and
+//! [Torrent::from_path](crate::torrent::Torrent::from_path)
+//!
+//! Based on the [BEP0003](https://www.bittorrent.org/beps/bep_0003.html) bencode
+//! parsing specifications
 
-use crate::torrent::Torrent;
+use std::iter::Enumerate;
 
-/// Control char for detecting int starts
-const INT_START: char = 'i';
+/// Control char num for detecting int starts, equates to `i`
+const INT_START: u8 = 105;
 
-/// Control char for detecting list starts
-const LIST_START: char = 'l';
+/// Control char num for detecting list starts, equates to `l`
+const LIST_START: u8 = 108;
 
-/// Control char for detecting dict starts
-const DICT_START: char = 'd';
+/// Control char num for detecting dict starts, equates to `d`
+const DICT_START: u8 = 100;
 
-/// Control char for detecting end of data structures
-const END: char = 'e';
+/// Control char num for detecting end of data structures, equates to `e`
+const END: u8 = 101;
 
-/// Control char for seperating string length number from contents
-const STR_SEP: char = ':';
+/// Control char num for seperating string length number from contents, equates to `:`
+const STR_SEP: u8 = 58;
 
-/// Errors relating to parsing from primarily [parse] or [parse_str]
+/// Error enum for errors during parsing. If a [usize] is given, it typically
+/// represents last parsed byte's posision
 #[derive(Debug, PartialEq, Clone)]
 pub enum ParseError {
-    /// When the file ends prematurely without stopping (more specific
-    /// [ParseError::UnexpectedToken])
+    /// When the file ends prematurely without stopping
     UnexpectedEOF,
 
     /// A character has been placed in an unexpected area, this occurs commonly with
-    /// integers that have a misc character
-    UnexpectedChar(char),
-
-    /// An unexpected token was found, this is a more general version of
-    /// [ParseError::UnexpectedChar] and [ParseError::UnexpectedEOF]
-    UnexpectedToken,
+    /// integers that have a misc character. The first item in tuple represents
+    /// placement and second represents the unexpected byte
+    UnexpectedByte((usize, u8)),
 
     /// An integer block was left empty, e.g. `ie`
-    NoIntGiven,
+    NoIntGiven(usize),
+
+    /// Integer contains invalid (not 0-9) characters
+    InvalidInt(usize),
 
     /// A `i-0e` was given (negative zero) which is not allowed by the spec
-    NegativeZero,
+    NegativeZero(usize),
 
     /// Zeros where given before any significant number, e.g. `i002e`
-    LeadingZeros,
+    LeadingZeros(usize),
+
+    /// No bencode data given
+    EmptyFile,
+
+    /// Bencode provided to [parse] had multiple values given. Bencode is only
+    /// allowed to have 1 toplevel value, if you'd like more, use a list or dict
+    /// as the toplevel
+    MultipleValues,
 }
 
-/// Parsed `.torrent` (bencode) file line, containing a variety of outcomes. This
-/// is only used internally, see [Torrent] for publically
-/// returned parsing
+/// A found bencode object whilst parsing, only one is returned from [parse] due
+/// to the bencode spec
 #[derive(Debug, PartialEq, Clone)]
-pub enum BencodeObj {
-    /// Similar to a HashMap
-    Dict(Vec<(String, Box<BencodeObj>)>),
-    /// Array of lower-level [BencodeObj] instances
-    List(Vec<BencodeObj>),
-    /// Number (can be either num or snum, both fit into [i64])
-    Int(i64),
-    /// Byte string
+pub enum Bencode {
+    /// [Lexographically-ordered](https://en.wikipedia.org/wiki/Lexicographical_order)
+    /// dictionary from `d3:keyi6e9:other key12:second valuee`
+    Dict(Vec<(u8, Bencode)>),
+
+    /// Variable-sized array (list) of further [Bencode]s from `l4:this2:is1:a4:liste`
+    List(Vec<Bencode>),
+
+    /// A bytestring containing multiple bytes from `11:string here`
     ByteString(Vec<u8>),
+
+    /// Parsed integer from a direct `i0e`
+    Int(i64),
 }
 
-/// Internal types for tokens in scanner
-#[derive(Debug, PartialEq, Clone)]
-enum TokenType {
-    /// 'i' start char
-    IntStart,
-    /// 'l' start char
-    ListStart,
-    /// 'd' start char
-    DictStart,
-    /// 'e' end char
-    End,
-    /// ':' seperator char
-    StringSep,
-    /// Misc char used for data
-    Char(char),
-}
-
-impl From<TokenType> for char {
-    fn from(token: TokenType) -> Self {
-        match token {
-            TokenType::IntStart => INT_START,
-            TokenType::ListStart => LIST_START,
-            TokenType::DictStart => DICT_START,
-            TokenType::End => END,
-            TokenType::StringSep => STR_SEP,
-            TokenType::Char(c) => c,
-        }
-    }
-}
-
-impl From<char> for TokenType {
-    fn from(character: char) -> Self {
-        match character {
-            INT_START => TokenType::IntStart,
-            LIST_START => TokenType::ListStart,
-            DICT_START => TokenType::DictStart,
-            END => TokenType::End,
-            STR_SEP => TokenType::StringSep,
-            c => TokenType::Char(c),
-        }
-    }
-}
-
-/// Lexes data and returns an output of [Vec]<[TokenType]> corrosponding
-/// to each
-fn scan_data(data: &str) -> Vec<TokenType> {
-    data.chars().map(|c| c.into()).collect()
-}
-
-/// Matches next peeked token in `token_iter` and consumes it until a relevant
-/// data structure has been made
-fn match_next_bencodeobj(
-    peeked_token: &TokenType,
-    token_iter: &mut std::iter::Peekable<std::slice::Iter<TokenType>>,
-) -> Result<BencodeObj, ParseError> {
-    match peeked_token {
-        TokenType::IntStart => Ok(BencodeObj::Int(decode_int(token_iter)?)),
-        TokenType::ListStart => Ok(BencodeObj::List(decode_list(token_iter)?)),
-        TokenType::Char(c) => match c {
-            '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
-                Ok(BencodeObj::ByteString(decode_bytestring(token_iter)?))
-            }
-            _ => return Err(ParseError::UnexpectedChar(*c)), // TODO better error
-        },
-        _ => unimplemented!(),
-    }
-}
-
-/// Similar to [read_until] but collects while [BencodeObj]s and then checks
-/// token after to see if it matches. Used throughout for lists and recusive
-/// sections
-fn match_until(
-    query: TokenType,
-    token_iter: &mut std::iter::Peekable<std::slice::Iter<TokenType>>,
-) -> Result<Vec<BencodeObj>, ParseError> {
-    let mut bencode_vec = vec![];
-    let mut peeked_token = match token_iter.peek() {
-        Some(p) => p,
-        None => return Err(ParseError::UnexpectedEOF),
-    };
-
-    while peeked_token != &&query {
-        bencode_vec.push(match_next_bencodeobj(peeked_token, token_iter)?);
-        peeked_token = match token_iter.peek() {
-            Some(p) => p,
-            None => return Err(ParseError::UnexpectedEOF),
-        };
-    }
-
-    token_iter.next(); // consume queried token
-
-    Ok(bencode_vec)
-}
-
-/// Iterates over token_iter and adds to output vec until query is found then
-/// returns (without adding last found token)
+/// Steps over `bytes` until `stop_byte` is met or EOF (in which case
+/// [Err]([ParseError::UnexpectedEOF]) is given). Does not return last element
+/// which is equivilant to `stop_byte`
 fn read_until(
-    query: TokenType,
-    token_iter: &mut std::iter::Peekable<std::slice::Iter<TokenType>>,
-) -> Result<Vec<TokenType>, ParseError> {
-    let mut token_output = vec![];
+    bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
+    stop_byte: u8,
+) -> Result<Vec<u8>, ParseError> {
+    let mut new_bytes: Vec<u8> = vec![];
 
     loop {
-        let token = match token_iter.next() {
-            Some(t) => t,
+        match bytes_iter.next() {
+            Some((_, new_byte)) => {
+                if new_byte == stop_byte {
+                    break;
+                } else {
+                    new_bytes.push(new_byte)
+                }
+            }
             None => return Err(ParseError::UnexpectedEOF),
-        };
-
-        if token == &query {
-            break;
-        } else {
-            token_output.push(token.clone())
         }
     }
 
-    Ok(token_output)
+    Ok(new_bytes)
 }
 
-/// Matches a digit char to ensure it isn't incorrectly formatted
-fn digitstr_from_token(token: TokenType) -> Result<char, ParseError> {
-    match token {
-        TokenType::Char(c) => match c {
-            '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => Ok(c),
-            uc => Err(ParseError::UnexpectedChar(uc)),
-        },
-        _ => Err(ParseError::UnexpectedToken),
-    }
-}
-
-/// Digests a [Vec] of [TokenType] into a basic number. See [decode_int] for
-/// signed, blocked `i-1e` version
-fn decode_num(tokens: Vec<TokenType>) -> Result<u32, ParseError> {
-    if tokens.len() == 0 {
-        return Err(ParseError::NoIntGiven);
-    }
-
-    let numstring = tokens
-        .iter()
-        .map(|t| digitstr_from_token(t.clone()))
-        .collect::<Result<String, _>>()?;
-
-    if numstring.len() > 1 && numstring.chars().nth(0).unwrap() == '0' {
-        return Err(ParseError::LeadingZeros);
-    }
-
-    Ok(numstring.parse().unwrap())
-}
-
-/// Decodes full int block which is an snum with `i` prefix and `e` char
-fn decode_int(
-    token_iter: &mut std::iter::Peekable<std::slice::Iter<TokenType>>,
-) -> Result<i64, ParseError> {
-    token_iter.next(); // skip `i` prefix
-
-    let mut tokens = read_until(TokenType::End, token_iter)?;
-    let mut neg_number = false;
-
-    if tokens.first() == Some(&TokenType::Char('-')) {
-        neg_number = true;
-        tokens.remove(0);
-    }
-
-    let parsed_num = decode_num(tokens)?;
-
-    if parsed_num == 0 && neg_number {
-        Err(ParseError::NegativeZero)
-    } else if neg_number {
-        Ok(-(parsed_num as i64))
-    } else {
-        Ok(parsed_num as i64)
-    }
-}
-
-/// Decodes string using unsigned/basic [decode_num] and counts chars until it
-/// is satisfied or [ParseError::UnexpectedEOF]
-fn decode_bytestring(
-    token_iter: &mut std::iter::Peekable<std::slice::Iter<TokenType>>,
-) -> Result<Vec<u8>, ParseError> {
-    let prefix_num = decode_num(read_until(TokenType::StringSep, token_iter)?)?;
-    let mut output_bytevec: Vec<u8> = Vec::with_capacity(token_iter.len());
-
-    for _ in 0..prefix_num {
-        output_bytevec.push(match token_iter.next() {
-            Some(c) => char::from(c.clone()) as u8,
-            None => return Err(ParseError::UnexpectedEOF),
-        });
-    }
-
-    Ok(output_bytevec)
-}
-
-/// Decodes list by recursively decending through other bencode objects
-fn decode_list(
-    token_iter: &mut std::iter::Peekable<std::slice::Iter<TokenType>>,
-) -> Result<Vec<BencodeObj>, ParseError> {
-    token_iter.next(); // skip `l` prefix
-    match_until(TokenType::End, token_iter)
-}
-
-/// Parses `.torrent` (bencode) file into a [BencodeObj] for each line
+/// Decodes simple, unsigned number from given Vec<u8> UTF-8
 ///
-/// **See [parse] or [parse_str] if you'd like to parse into [Torrent]s**
-pub fn parse_to_bencodeobj(data: &str) -> Result<Vec<BencodeObj>, ParseError> {
-    let mut bencode_vec = vec![];
-    let scanned_data = scan_data(data);
+/// This requires a `byte_ind` incase a number of errors occur it needs to be
+/// referenced back
+///
+/// If you want to decode a whole `i3432e` block, see [decode_int] instead
+fn decode_num(bytes: Vec<u8>, byte_ind: usize) -> Result<u32, ParseError> {
+    if bytes.len() == 0 {
+        return Err(ParseError::NoIntGiven(byte_ind));
+    } else if bytes[0] == 48 && bytes.len() > 1 {
+        return Err(ParseError::LeadingZeros(byte_ind));
+    }
 
-    let mut token_iter = scanned_data.iter().peekable();
+    match std::str::from_utf8(&bytes) {
+        Ok(numstr) => match numstr.parse::<u32>() {
+            Ok(num) => Ok(num),
+            Err(_) => Err(ParseError::InvalidInt(byte_ind)),
+        },
+        Err(_) => Err(ParseError::InvalidInt(byte_ind)),
+    }
+}
+
+/// Decode a full signed integer value using [decode_num] and adding minuses
+fn decode_int(
+    bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
+    byte_ind: usize,
+) -> Result<i64, ParseError> {
+    let mut got_bytes = read_until(bytes_iter, END)?;
+
+    let mut is_negative = false;
+
+    if got_bytes.len() == 0 {
+        // this is in decode_num but need to safeguard here too
+        return Err(ParseError::NoIntGiven(byte_ind));
+    } else if got_bytes[0] == 45 {
+        if got_bytes.len() == 1 {
+            return Err(ParseError::NoIntGiven(byte_ind));
+        }
+
+        got_bytes.remove(0);
+        is_negative = true;
+    }
+
+    if is_negative {
+        if got_bytes[0] == 48 {
+            return Err(ParseError::NegativeZero(byte_ind));
+        }
+
+        Ok(-(decode_num(got_bytes, byte_ind)? as i64))
+    } else {
+        Ok(decode_num(got_bytes, byte_ind)? as i64)
+    }
+}
+
+/// Decodes a dynamically-typed vector (list) from bencode
+fn decode_list(
+    bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
+) -> Result<Vec<Bencode>, ParseError> {
+    let mut bencode_out = vec![];
 
     loop {
-        let peeked_token = match token_iter.peek() {
-            Some(nt) => nt,
-            None => break,
-        };
+        match bytes_iter.next() {
+            Some(cur_byte) => {
+                if cur_byte.1 == END {
+                    break;
+                }
 
-        bencode_vec.push(match_next_bencodeobj(peeked_token, &mut token_iter)?);
+                bencode_out.push(get_next(Some(cur_byte), bytes_iter)?);
+            }
+            None => return Err(ParseError::UnexpectedEOF),
+        };
     }
 
-    Ok(bencode_vec)
+    Ok(bencode_out)
 }
 
-/// Creates a [Torrent] from given data by piping results from [parse_to_bencodeobj]
-/// into a new [Torrent] structure
-pub fn parse(data: &str) -> Result<Torrent, ParseError> {
-    unimplemented!();
+/// Finds the next full [Bencode] block or returns a [ParseError::UnexpectedEOF]
+fn get_next(
+    cur_byte: Option<(usize, u8)>,
+    bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
+) -> Result<Bencode, ParseError> {
+    match cur_byte {
+        Some((byte_ind, byte)) => match byte {
+            INT_START => Ok(Bencode::Int(decode_int(bytes_iter, byte_ind)?)),
+            LIST_START => Ok(Bencode::List(decode_list(bytes_iter)?)),
+            48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 => {
+                // bytestring
+
+                let mut num_utf8 = read_until(bytes_iter, STR_SEP)?; // utf-8 encoded number
+                num_utf8.push(byte);
+
+                let str_length = decode_num(num_utf8, byte_ind)? as usize;
+                let u8string = bytes_iter
+                    .take(str_length)
+                    .map(|x| x.1)
+                    .collect::<Vec<u8>>();
+
+                Ok(Bencode::ByteString(u8string))
+            }
+            _ => Err(ParseError::UnexpectedByte((byte_ind, byte))),
+        },
+        None => Err(ParseError::UnexpectedEOF),
+    }
 }
 
-/// Alias for [parse] which allows a [String] `data` rather than a &[str] `data`
-pub fn parse_str(data: String) -> Result<Torrent, ParseError> {
-    parse(&data)
+/// Parses provided `Vec<u8>` input into a [Bencode] that contains the entirety of
+/// the parsed bencode file
+///
+/// Please see [Torrent](crate::torrent::Torrent) if you are searching for a
+/// fully-complete torrent representation
+pub fn parse(data: Vec<u8>) -> Result<Bencode, ParseError> {
+    if data.len() == 0 {
+        return Err(ParseError::EmptyFile);
+    }
+
+    let mut bytes_iter = data.into_iter().enumerate();
+
+    match get_next(bytes_iter.next(), &mut bytes_iter) {
+        Ok(bencode_out) => {
+            if bytes_iter.count() != 0 {
+                Err(ParseError::MultipleValues)
+            } else {
+                Ok(bencode_out)
+            }
+        }
+        Err(e) => Err(e),
+    }
+}
+
+/// Alias to [parse] which allows a [u8] [slice](std::slice), e.g. &[[u8]]
+pub fn parse_slice(data: &[u8]) -> Result<Bencode, ParseError> {
+    parse(data.to_vec())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// Basic assert_eq tests for [scan_data] with simple single-line data
+    /// Turns a &[str] into a [Vec]<[u8]> for code nicity
+    fn str_to_vecu8(i: &str) -> Vec<u8> {
+        i.as_bytes().to_vec()
+    }
+
+    /// Tests [parse] makes a proper [Bencode::Int] and handles any errors that
+    /// may occur (from [decode_int])
     #[test]
-    fn scan_basic_eq() {
-        assert_eq!(scan_data(""), vec![]);
+    fn integers() {
+        assert_eq!(parse(str_to_vecu8("i50e")), Ok(Bencode::Int(50)));
+        assert_eq!(parse(str_to_vecu8("i0e")), Ok(Bencode::Int(0)));
+        assert_eq!(parse(str_to_vecu8("i1000000e")), Ok(Bencode::Int(1000000)));
         assert_eq!(
-            scan_data("i32e"),
-            vec![
-                TokenType::IntStart,
-                TokenType::Char('3'),
-                TokenType::Char('2'),
-                TokenType::End
-            ]
+            parse(str_to_vecu8("i-1000000e")),
+            Ok(Bencode::Int(-1000000))
+        );
+
+        assert_eq!(parse(str_to_vecu8("ie")), Err(ParseError::NoIntGiven(0)));
+        assert_eq!(
+            parse(str_to_vecu8("i00e")),
+            Err(ParseError::LeadingZeros(0))
         );
         assert_eq!(
-            scan_data("ilde:_"),
-            vec![
-                TokenType::IntStart,
-                TokenType::ListStart,
-                TokenType::DictStart,
-                TokenType::End,
-                TokenType::StringSep,
-                TokenType::Char('_')
-            ]
+            parse(str_to_vecu8("i-0e")),
+            Err(ParseError::NegativeZero(0))
+        );
+        assert_eq!(
+            parse(str_to_vecu8("i-00e")),
+            Err(ParseError::NegativeZero(0))
         );
     }
 
-    /// Basic assert_ne tests for [scan_data] with simple single-line data
+    /// Tests [parse] makes a proper [Bencode::ByteString] (from [decode_bytestring])
     #[test]
-    fn scan_basic_ne() {
-        assert_ne!(scan_data("l"), vec![TokenType::Char('l')]);
+    fn bytestring() {
+        let inputs = vec![
+            "hello there",
+            "another_string",
+            "e",
+            "",
+            "00",
+            "i00e",
+            "0x\\1",
+        ];
+
+        for input in inputs {
+            let formatted_input = format!("{}:{}", input.len(), input).as_bytes().to_vec();
+
+            assert_eq!(
+                parse(formatted_input),
+                Ok(Bencode::ByteString(input.as_bytes().to_vec()))
+            );
+        }
     }
 
-    /// Trips for newlines and whitespace
+    /// Tests [parse] makes a well-formed list (from [decode_list])
     #[test]
-    fn scan_newlines_whitespace() {
+    fn lists() {
+        assert_eq!(parse(str_to_vecu8("le")), Ok(Bencode::List(vec![])));
         assert_eq!(
-            scan_data("   \n \n      i       "),
-            vec![
-                TokenType::Char(' '),
-                TokenType::Char(' '),
-                TokenType::Char(' '),
-                TokenType::Char('\n'),
-                TokenType::Char(' '),
-                TokenType::Char('\n'),
-                TokenType::Char(' '),
-                TokenType::Char(' '),
-                TokenType::Char(' '),
-                TokenType::Char(' '),
-                TokenType::Char(' '),
-                TokenType::Char(' '),
-                TokenType::IntStart,
-                TokenType::Char(' '),
-                TokenType::Char(' '),
-                TokenType::Char(' '),
-                TokenType::Char(' '),
-                TokenType::Char(' '),
-                TokenType::Char(' '),
-                TokenType::Char(' '),
-            ]
-        );
-        assert_eq!(scan_data("\n"), vec![TokenType::Char('\n')]);
-    }
-
-    /// Checks the basic [decode_num] works correctly and in turn
-    /// [digitstr_from_token] also works correctly
-    #[test]
-    fn num_digest() {
-        assert_eq!(
-            decode_num(vec![
-                TokenType::Char('3'),
-                TokenType::Char('4'),
-                TokenType::Char('2')
-            ]),
-            Ok(342)
-        );
-        assert_eq!(decode_num(vec![TokenType::Char('0')]), Ok(0));
-        assert_eq!(
-            decode_num(vec![
-                TokenType::Char('1'),
-                TokenType::Char('0'),
-                TokenType::Char('0'),
-                TokenType::Char('0'),
-                TokenType::Char('0'),
-                TokenType::Char('0'),
-                TokenType::Char('0'),
-                TokenType::Char('0')
-            ]),
-            Ok(10000000)
+            parse(str_to_vecu8("li64ee")),
+            Ok(Bencode::List(vec![Bencode::Int(64)]))
         );
         assert_eq!(
-            decode_num(vec![TokenType::Char('0'), TokenType::Char('0')]),
-            Err(ParseError::LeadingZeros)
+            parse(str_to_vecu8("li-200ei0ee")),
+            Ok(Bencode::List(vec![Bencode::Int(-200), Bencode::Int(0)]))
         );
         assert_eq!(
-            decode_num(vec![
-                TokenType::Char('-'),
-                TokenType::Char('3'),
-                TokenType::Char('4'),
-                TokenType::Char('2')
-            ]),
-            Err(ParseError::UnexpectedChar('-'))
+            parse(str_to_vecu8("l6:stringi0ei0ee")),
+            Ok(Bencode::List(vec![
+                Bencode::ByteString(str_to_vecu8("string")),
+                Bencode::Int(0),
+                Bencode::Int(0)
+            ]))
         );
     }
 
-    /// Checks positive int digests
+    /// Tests that [read_until] correctly stops at end marks rather then going over
     #[test]
-    fn int_digest() {
-        assert_eq!(decode_int(&mut scan_data("i1e").iter().peekable()), Ok(1));
+    fn correct_end_mark() {
         assert_eq!(
-            decode_int(&mut scan_data("i324e").iter().peekable()),
-            Ok(324)
+            parse(str_to_vecu8("i64ee")),
+            Err(ParseError::MultipleValues)
         );
-        assert_eq!(
-            decode_int(&mut scan_data("i10000e").iter().peekable()),
-            Ok(10000)
-        );
-        assert_eq!(
-            decode_int(&mut scan_data("i00234000e").iter().peekable()),
-            Err(ParseError::LeadingZeros)
-        );
-        assert_eq!(decode_int(&mut scan_data("i0e").iter().peekable()), Ok(0));
-        assert_eq!(
-            decode_int(&mut scan_data("i000000e").iter().peekable()),
-            Err(ParseError::LeadingZeros)
-        );
-        assert_eq!(
-            decode_int(&mut scan_data("i4 0 9 6e").iter().peekable()),
-            Err(ParseError::UnexpectedChar(' '))
-        );
-        assert_eq!(
-            decode_int(&mut scan_data("i10 0  0e").iter().peekable()),
-            Err(ParseError::UnexpectedChar(' '))
-        );
-        assert_eq!(
-            decode_int(&mut scan_data("ie").iter().peekable()),
-            Err(ParseError::NoIntGiven)
-        );
-    }
-
-    /// Checks negative int digests
-    #[test]
-    fn neg_int_digest() {
-        assert_eq!(decode_int(&mut scan_data("i-1e").iter().peekable()), Ok(-1));
-        assert_eq!(
-            decode_int(&mut scan_data("i-324e").iter().peekable()),
-            Ok(-324)
-        );
-        assert_eq!(
-            decode_int(&mut scan_data("i-10000e").iter().peekable()),
-            Ok(-10000)
-        );
-        assert_eq!(
-            decode_int(&mut scan_data("i-0e").iter().peekable()),
-            Err(ParseError::NegativeZero)
-        );
-        assert_eq!(
-            decode_int(&mut scan_data("i--10e").iter().peekable()),
-            Err(ParseError::UnexpectedChar('-'))
-        );
-        assert_eq!(
-            decode_int(&mut scan_data("i-000000e").iter().peekable()),
-            Err(ParseError::LeadingZeros)
-        );
-        assert_eq!(
-            decode_int(&mut scan_data("i-00 3 2e").iter().peekable()),
-            Err(ParseError::UnexpectedChar(' '))
-        );
-        assert_eq!(
-            decode_int(&mut scan_data("i-34-22-234e").iter().peekable()),
-            Err(ParseError::UnexpectedChar('-'))
-        );
-        assert_eq!(
-            decode_int(&mut scan_data("i-e").iter().peekable()),
-            Err(ParseError::NoIntGiven)
-        );
-    }
-
-    /// Checks that [decode_bytestring] (bytestring decoding) is working correctly
-    #[test]
-    fn str_parsing() {
-        assert_eq!(
-            decode_bytestring(&mut scan_data("4:test").iter().peekable()),
-            Ok("test".into())
-        );
-        assert_eq!(
-            decode_bytestring(&mut scan_data("0:").iter().peekable()),
-            Ok(vec![])
-        );
-        assert_eq!(
-            decode_bytestring(&mut scan_data("1:f").iter().peekable()),
-            Ok("f".into())
-        );
-        assert_eq!(
-            decode_bytestring(&mut scan_data("7:try4:toerror").iter().peekable()),
-            Ok("try4:to".into())
-        );
-    }
-
-    /// Ensures that [parse_to_bencodeobj] properly matches to the desired type
-    #[test]
-    fn parse_bencodeobj_correctness() {
-        assert_eq!(parse_to_bencodeobj("i32e"), Ok(vec![BencodeObj::Int(32)]));
-        assert_eq!(
-            parse_to_bencodeobj("4:test8:working?i1e"),
-            Ok(vec![
-                BencodeObj::ByteString("test".into()),
-                BencodeObj::ByteString("working?".into()),
-                BencodeObj::Int(1)
-            ])
-        );
-    }
-
-    /// Check [match_until] works correctly
-    #[test]
-    fn check_match_until() {
-        assert_eq!(
-            match_until(
-                TokenType::End,
-                &mut scan_data("i32ei4546ee5:norun").iter().peekable()
-            ),
-            Ok(vec![BencodeObj::Int(32), BencodeObj::Int(4546)]) // only ints and dupe `e` consumed
-        );
-    }
-
-    /// Checks that lists work correctly
-    #[test]
-    fn list_parsing() {
-        assert_eq!(
-            decode_list(&mut scan_data("li60e4:test4:cooli0ee").iter().peekable()),
-            Ok(vec![
-                BencodeObj::Int(60),
-                BencodeObj::ByteString("test".into()),
-                BencodeObj::ByteString("cool".into()),
-                BencodeObj::Int(0)
-            ])
-        )
+        assert_eq!(parse(str_to_vecu8("lee")), Err(ParseError::MultipleValues));
     }
 }
