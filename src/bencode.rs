@@ -103,6 +103,12 @@ fn read_until(bytes_iter: &mut Enumerate<Iter<u8>>, stop_byte: u8) -> Result<Vec
 ///
 /// If you want to decode a whole `i3432e` block, see [decode_int] instead
 fn decode_num(bytes: Vec<u8>, byte_ind: usize) -> Result<u32, ParseError> {
+    if bytes.len() == 0 {
+        return Err(ParseError::NoIntGiven(byte_ind));
+    } else if bytes[0] == 48 && bytes.len() > 1 {
+        return Err(ParseError::LeadingZeros(byte_ind));
+    }
+
     match std::str::from_utf8(&bytes) {
         Ok(numstr) => match numstr.parse::<u32>() {
             Ok(num) => Ok(num),
@@ -112,10 +118,39 @@ fn decode_num(bytes: Vec<u8>, byte_ind: usize) -> Result<u32, ParseError> {
     }
 }
 
+/// Decode a full signed integer value using [decode_num] and adding minuses
+fn decode_int(bytes_iter: &mut Enumerate<Iter<u8>>, byte_ind: usize) -> Result<i64, ParseError> {
+    let mut got_bytes = read_until(bytes_iter, END)?;
+    let mut is_negative = false;
+
+    if got_bytes.len() == 0 {
+        // this is in decode_num but need to safeguard here too
+        return Err(ParseError::NoIntGiven(byte_ind));
+    } else if got_bytes[0] == 45 {
+        if got_bytes.len() == 1 {
+            return Err(ParseError::NoIntGiven(byte_ind));
+        }
+
+        got_bytes.remove(0);
+        is_negative = true;
+    }
+
+    if is_negative {
+        if got_bytes[0] == 48 {
+            return Err(ParseError::NegativeZero(byte_ind));
+        }
+
+        Ok(-(decode_num(got_bytes, byte_ind)? as i64))
+    } else {
+        Ok(decode_num(got_bytes, byte_ind)? as i64)
+    }
+}
+
 /// Finds the next full [Bencode] block or returns a [ParseError::UnexpectedEOF]
 fn get_next(bytes_iter: &mut Enumerate<Iter<u8>>) -> Result<Bencode, ParseError> {
     match bytes_iter.next() {
-        Some((byte_ind, byte)) => match byte {
+        Some((byte_ind, byte)) => match *byte {
+            INT_START => Ok(Bencode::Int(decode_int(bytes_iter, byte_ind)?)),
             48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 => {
                 // bytestring
 
@@ -194,7 +229,7 @@ mod tests {
         );
         assert_eq!(
             parse(str_to_vecu8("i-00e")),
-            Err(ParseError::LeadingZeros(0))
+            Err(ParseError::NegativeZero(0))
         );
     }
 
