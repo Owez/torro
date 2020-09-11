@@ -112,6 +112,7 @@ fn decode_num(bytes: Vec<u8>, byte_ind: usize) -> Result<u32, ParseError> {
     }
 }
 
+/// Finds the next full [Bencode] block or returns a [ParseError::UnexpectedEOF]
 fn get_next(bytes_iter: &mut Enumerate<Iter<u8>>) -> Result<Bencode, ParseError> {
     match bytes_iter.next() {
         Some((byte_ind, byte)) => match byte {
