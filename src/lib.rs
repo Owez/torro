@@ -17,7 +17,7 @@
 //! ## First steps
 //!
 //! 1. You should first create a torrent structure by inputting a `.torrent` file
-//! formatted as `&[u8]` into [Torrent::new](crate::torrent::Torrent::new) or by
+//! formatted as `Vec<u8>` into [Torrent::new](crate::torrent::Torrent::new) or by
 //! passing a `.torrent` file to [Torrent::from_path](crate::torrent::Torrent::from_path)
 //! 2. Once you have a [Torrent](crate::torrent::Torrent) struct, you have access
 //! to other parts of torro like **`COMING SOON`** or **`COMING SOON`**.
