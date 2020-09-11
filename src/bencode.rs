@@ -1,4 +1,4 @@
-//! Contains bencode parsing-related functions used inside of
+//! Bencode parsing-related functions used inside of
 //! [Torrent::new](crate::torrent::Torrent::new) and
 //! [Torrent::from_path](crate::torrent::Torrent::from_path)
 //!

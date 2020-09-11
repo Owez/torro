@@ -1,4 +1,5 @@
-//! Error enums for torro, see [TorroError] for the container enum that provides access to more specific errors
+//! All public error enums, see [TorroError] for the container enum which provides
+//! access to more specific errors
 
 /// Main error enum containing multiple module-specific errors like [BencodeError]
 /// for `.torrent` (bencode) parsing
@@ -24,9 +25,9 @@ pub enum BencodeError {
     /// When the file ends prematurely without stopping
     UnexpectedEOF,
 
-    /// A character has been placed in an unexpected area, this occurs commonly with
-    /// integers that have a misc character. The first item in tuple represents
-    /// placement and second represents the unexpected byte
+    /// A character has been placed in an unexpected area, this occurs commonly
+    /// with integers that have a misc character. The first item in tuple
+    /// represents placement and second represents the unexpected byte
     UnexpectedByte((usize, u8)),
 
     /// An integer block was left empty, e.g. `ie`
@@ -44,9 +45,9 @@ pub enum BencodeError {
     /// No bencode data given
     EmptyFile,
 
-    /// Bencode provided to [parse] had multiple values given. Bencode is only
-    /// allowed to have 1 toplevel value, if you'd like more, use a list or dict
-    /// as the toplevel
+    /// Bencode provided to bencode parser had multiple values given. Bencode is
+    /// only allowed to have 1 toplevel value, if you'd like more, use a list or
+    /// dict as the toplevel
     MultipleValues,
 }
 
