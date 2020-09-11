@@ -6,7 +6,6 @@
 //! parsing specifications
 
 use std::iter::Enumerate;
-use std::slice::Iter;
 
 /// Control char num for detecting int starts, equates to `i`
 const INT_START: u8 = 105;
@@ -127,6 +126,7 @@ fn decode_int(
     byte_ind: usize,
 ) -> Result<i64, ParseError> {
     let mut got_bytes = read_until(bytes_iter, END)?;
+
     let mut is_negative = false;
 
     if got_bytes.len() == 0 {
@@ -159,24 +159,27 @@ fn decode_list(
     let mut bencode_out = vec![];
 
     loop {
-        bencode_out.push(get_next(bytes_iter)?);
-
-        match bytes_iter.peekable().peek() {
-            Some((_, byte)) => {
-                if byte == &END {
+        match bytes_iter.next() {
+            Some(cur_byte) => {
+                if cur_byte.1 == END {
                     break;
                 }
+
+                bencode_out.push(get_next(Some(cur_byte), bytes_iter)?);
             }
             None => return Err(ParseError::UnexpectedEOF),
-        }
+        };
     }
 
     Ok(bencode_out)
 }
 
 /// Finds the next full [Bencode] block or returns a [ParseError::UnexpectedEOF]
-fn get_next(bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>) -> Result<Bencode, ParseError> {
-    match bytes_iter.next() {
+fn get_next(
+    cur_byte: Option<(usize, u8)>,
+    bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
+) -> Result<Bencode, ParseError> {
+    match cur_byte {
         Some((byte_ind, byte)) => match byte {
             INT_START => Ok(Bencode::Int(decode_int(bytes_iter, byte_ind)?)),
             LIST_START => Ok(Bencode::List(decode_list(bytes_iter)?)),
@@ -194,7 +197,7 @@ fn get_next(bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>) -> Result<Benc
 
                 Ok(Bencode::ByteString(u8string))
             }
-            _ => unimplemented!(),
+            _ => Err(ParseError::UnexpectedByte((byte_ind, byte))),
         },
         None => Err(ParseError::UnexpectedEOF),
     }
@@ -206,9 +209,13 @@ fn get_next(bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>) -> Result<Benc
 /// Please see [Torrent](crate::torrent::Torrent) if you are searching for a
 /// fully-complete torrent representation
 pub fn parse(data: Vec<u8>) -> Result<Bencode, ParseError> {
+    if data.len() == 0 {
+        return Err(ParseError::EmptyFile);
+    }
+
     let mut bytes_iter = data.into_iter().enumerate();
 
-    match get_next(&mut bytes_iter) {
+    match get_next(bytes_iter.next(), &mut bytes_iter) {
         Ok(bencode_out) => {
             if bytes_iter.count() != 0 {
                 Err(ParseError::MultipleValues)
@@ -216,7 +223,6 @@ pub fn parse(data: Vec<u8>) -> Result<Bencode, ParseError> {
                 Ok(bencode_out)
             }
         }
-        Err(ParseError::UnexpectedEOF) => Err(ParseError::EmptyFile), // map to empty file error
         Err(e) => Err(e),
     }
 }
@@ -236,7 +242,7 @@ mod tests {
     }
 
     /// Tests [parse] makes a proper [Bencode::Int] and handles any errors that
-    /// may occur
+    /// may occur (from [decode_int])
     #[test]
     fn integers() {
         assert_eq!(parse(str_to_vecu8("i50e")), Ok(Bencode::Int(50)));
@@ -262,7 +268,7 @@ mod tests {
         );
     }
 
-    /// Tests [parse] makes a proper [Bencode::ByteString]
+    /// Tests [parse] makes a proper [Bencode::ByteString] (from [decode_bytestring])
     #[test]
     fn bytestring() {
         let inputs = vec![
@@ -285,5 +291,35 @@ mod tests {
         }
     }
 
-    // TODO: more tests
+    /// Tests [parse] makes a well-formed list (from [decode_list])
+    #[test]
+    fn lists() {
+        assert_eq!(parse(str_to_vecu8("le")), Ok(Bencode::List(vec![])));
+        assert_eq!(
+            parse(str_to_vecu8("li64ee")),
+            Ok(Bencode::List(vec![Bencode::Int(64)]))
+        );
+        assert_eq!(
+            parse(str_to_vecu8("li-200ei0ee")),
+            Ok(Bencode::List(vec![Bencode::Int(-200), Bencode::Int(0)]))
+        );
+        assert_eq!(
+            parse(str_to_vecu8("l6:stringi0ei0ee")),
+            Ok(Bencode::List(vec![
+                Bencode::ByteString(str_to_vecu8("string")),
+                Bencode::Int(0),
+                Bencode::Int(0)
+            ]))
+        );
+    }
+
+    /// Tests that [read_until] correctly stops at end marks rather then going over
+    #[test]
+    fn correct_end_mark() {
+        assert_eq!(
+            parse(str_to_vecu8("i64ee")),
+            Err(ParseError::MultipleValues)
+        );
+        assert_eq!(parse(str_to_vecu8("lee")), Err(ParseError::MultipleValues));
+    }
 }
