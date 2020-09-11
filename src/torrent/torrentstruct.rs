@@ -1,9 +1,6 @@
-//! Contains main [Torrent] structure used as a "key" to interact with other parts
-//! of torro
-
-use crate::bencode;
-use crate::error;
-use std::path::PathBuf;
+//! Contains basic [Torrent] and [TorrentFile]. See `impl_x.rs` files in the
+//! `torrent/` directory to see specific implementations that are split due to
+//! file length/organisation
 
 /// Represents the overall torrent directory structure for a given [Torrent]
 ///
@@ -111,18 +108,4 @@ pub struct Torrent {
     /// muliple file case, it's the name of a directory.
     /// ```
     pub file_structure: TorrentFile,
-}
-
-impl Torrent {
-    /// Creates a new [Torrent] from given `torrent_data` formatted as [Vec]<[u8]>
-    pub fn new(torrent_data: Vec<u8>) -> Result<Self, error::TorroError> {
-        let parsed_bencode = bencode::parse(torrent_data)?;
-
-        Err(error::TorroError::Unimplemented)
-    }
-
-    /// Creates a new [Torrent] from given `.torrent` path
-    pub fn from_path(path: PathBuf) -> Result<Self, error::TorroError> {
-        Err(error::TorroError::Unimplemented)
-    }
 }
