@@ -31,8 +31,8 @@ pub enum Bencode {
     /// [Lexographically-ordered](https://en.wikipedia.org/wiki/Lexicographical_order)
     /// dictionary from `d3:keyi6e9:other key12:second valuee`.
     ///
-    /// The first value isequivilant to a [Bencode::ByteString] and second is a
-    ///recursive [Bencode] block
+    /// The first value is equivilant to a [Bencode::ByteString] and second is a
+    /// recursive [Bencode] block
     Dict(BTreeMap<Vec<u8>, Bencode>),
 
     /// Variable-sized array (list) of further [Bencode]s from `l4:this2:is1:a4:liste`
