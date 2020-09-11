@@ -77,16 +77,19 @@ pub enum Bencode {
 /// Steps over `bytes` until `stop_byte` is met or EOF (in which case
 /// [Err]([ParseError::UnexpectedEOF]) is given). Does not return last element
 /// which is equivilant to `stop_byte`
-fn read_until(bytes_iter: &mut Enumerate<Iter<u8>>, stop_byte: u8) -> Result<Vec<u8>, ParseError> {
+fn read_until(
+    bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
+    stop_byte: u8,
+) -> Result<Vec<u8>, ParseError> {
     let mut new_bytes: Vec<u8> = vec![];
 
     loop {
         match bytes_iter.next() {
             Some((_, new_byte)) => {
-                if new_byte == &stop_byte {
+                if new_byte == stop_byte {
                     break;
                 } else {
-                    new_bytes.push(*new_byte)
+                    new_bytes.push(new_byte)
                 }
             }
             None => return Err(ParseError::UnexpectedEOF),
@@ -119,7 +122,10 @@ fn decode_num(bytes: Vec<u8>, byte_ind: usize) -> Result<u32, ParseError> {
 }
 
 /// Decode a full signed integer value using [decode_num] and adding minuses
-fn decode_int(bytes_iter: &mut Enumerate<Iter<u8>>, byte_ind: usize) -> Result<i64, ParseError> {
+fn decode_int(
+    bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
+    byte_ind: usize,
+) -> Result<i64, ParseError> {
     let mut got_bytes = read_until(bytes_iter, END)?;
     let mut is_negative = false;
 
@@ -146,21 +152,44 @@ fn decode_int(bytes_iter: &mut Enumerate<Iter<u8>>, byte_ind: usize) -> Result<i
     }
 }
 
+/// Decodes a dynamically-typed vector (list) from bencode
+fn decode_list(
+    bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
+) -> Result<Vec<Bencode>, ParseError> {
+    let mut bencode_out = vec![];
+
+    loop {
+        bencode_out.push(get_next(bytes_iter)?);
+
+        match bytes_iter.peekable().peek() {
+            Some((_, byte)) => {
+                if byte == &END {
+                    break;
+                }
+            }
+            None => return Err(ParseError::UnexpectedEOF),
+        }
+    }
+
+    Ok(bencode_out)
+}
+
 /// Finds the next full [Bencode] block or returns a [ParseError::UnexpectedEOF]
-fn get_next(bytes_iter: &mut Enumerate<Iter<u8>>) -> Result<Bencode, ParseError> {
+fn get_next(bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>) -> Result<Bencode, ParseError> {
     match bytes_iter.next() {
-        Some((byte_ind, byte)) => match *byte {
+        Some((byte_ind, byte)) => match byte {
             INT_START => Ok(Bencode::Int(decode_int(bytes_iter, byte_ind)?)),
+            LIST_START => Ok(Bencode::List(decode_list(bytes_iter)?)),
             48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 => {
                 // bytestring
 
                 let mut num_utf8 = read_until(bytes_iter, STR_SEP)?; // utf-8 encoded number
-                num_utf8.push(*byte);
+                num_utf8.push(byte);
 
                 let str_length = decode_num(num_utf8, byte_ind)? as usize;
                 let u8string = bytes_iter
                     .take(str_length)
-                    .map(|x| *x.1)
+                    .map(|x| x.1)
                     .collect::<Vec<u8>>();
 
                 Ok(Bencode::ByteString(u8string))
@@ -177,7 +206,7 @@ fn get_next(bytes_iter: &mut Enumerate<Iter<u8>>) -> Result<Bencode, ParseError>
 /// Please see [Torrent](crate::torrent::Torrent) if you are searching for a
 /// fully-complete torrent representation
 pub fn parse(data: Vec<u8>) -> Result<Bencode, ParseError> {
-    let mut bytes_iter = data.iter().enumerate();
+    let mut bytes_iter = data.into_iter().enumerate();
 
     match get_next(&mut bytes_iter) {
         Ok(bencode_out) => {
