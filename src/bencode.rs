@@ -75,7 +75,7 @@ pub enum Bencode {
 
 /// Steps over `bytes` until `stop_byte` is met or EOF (in which case
 /// [Err]([ParseError::UnexpectedEOF]) is given). Does not return last element
-/// which is equivilant to `stop_byte`
+/// which is equivalent to `stop_byte`
 fn read_until(
     bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
     stop_byte: u8,
