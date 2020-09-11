@@ -157,6 +157,11 @@ pub fn parse(data: Vec<u8>) -> Result<Bencode, ParseError> {
     }
 }
 
+/// Alias to [parse] which allows a [u8] [slice](std::slice), e.g. &[[u8]]
+pub fn parse_slice(data: &[u8]) -> Result<Bencode, ParseError> {
+    parse(data.to_vec())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
