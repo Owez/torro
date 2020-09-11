@@ -1,4 +1,5 @@
-//! Links [Torrent] to bencode parsing, allowing easy creation of said [Torrent]
+//! Links [Torrent] to bencode parsing and file digestion (pulling bytes from
+//! given [PathBuf]) for easy creation
 
 use crate::bencode;
 use crate::error;
