@@ -21,6 +21,10 @@ pub enum TorrentFile {
 /// The primary representation of a torrent, created from a parsing function
 /// like [bencode::parse](crate::bencode::parse). This representation is used to
 /// interact with many parts of torro.
+/// 
+/// If you wish to use torro without using this [Torrent] structure, you may use
+/// the publically exposed lower-level functions not attached to this structure
+/// like [bencode::parse]
 ///
 /// *All "BitTorrent Description" headings are taken from
 /// [BEP0003](https://www.bittorrent.org/beps/bep_0003.html) and is subject to
@@ -109,9 +113,6 @@ pub struct Torrent {
 
 impl Torrent {
     /// Creates a new [Torrent] from given `torrent_data` formatted as [Vec]<[u8]>
-    ///
-    /// This uses [bencode::parse] to parse bencode (torrent_data/`.torrent`) but
-    /// converts it's output into a simplified [Torrent]
     pub fn new(torrent_data: Vec<u8>) -> Result<Self, bencode::ParseError> {
         let parsed_bencode = bencode::parse(torrent_data)?;
 
@@ -120,8 +121,6 @@ impl Torrent {
 
 
     /// Creates a new [Torrent] from given `.torrent` path
-    /// 
-    /// This reads a file into bytes ([Vec]<[u8]>) and pipes into [Torrent::new]
     pub fn from_path(path: PathBuf) -> Result<Self, ()> {
         // TODO: make error.rs and move errors enums to it
         unimplemented!();
