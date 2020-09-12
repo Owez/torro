@@ -49,8 +49,8 @@ pub enum Bencode {
 /// [Err]([BencodeError::UnexpectedEOF]) is given). Does not return last element
 /// which is equivalent to `stop_byte`
 fn read_until(
-    bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
     stop_byte: u8,
+    bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
 ) -> Result<Vec<u8>, BencodeError> {
     let mut new_bytes: Vec<u8> = vec![];
 
@@ -76,7 +76,7 @@ fn read_until(
 /// referenced back
 ///
 /// If you want to decode a whole `i3432e` block, see [decode_int] instead
-fn decode_num(bytes: Vec<u8>, byte_ind: usize) -> Result<u32, BencodeError> {
+fn decode_num(byte_ind: usize, bytes: Vec<u8>) -> Result<u32, BencodeError> {
     if bytes.len() == 0 {
         return Err(BencodeError::NoIntGiven(byte_ind));
     } else if bytes[0] == 48 && bytes.len() > 1 {
@@ -94,10 +94,10 @@ fn decode_num(bytes: Vec<u8>, byte_ind: usize) -> Result<u32, BencodeError> {
 
 /// Decodes a full signed integer value using [decode_num] and adding minuses
 fn decode_int(
-    bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
     byte_ind: usize,
+    bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
 ) -> Result<i64, BencodeError> {
-    let mut got_bytes = read_until(bytes_iter, END)?;
+    let mut got_bytes = read_until(END, bytes_iter)?;
 
     let mut is_negative = false;
 
@@ -118,9 +118,9 @@ fn decode_int(
             return Err(BencodeError::NegativeZero(byte_ind));
         }
 
-        Ok(-(decode_num(got_bytes, byte_ind)? as i64))
+        Ok(-(decode_num(byte_ind, got_bytes)? as i64))
     } else {
-        Ok(decode_num(got_bytes, byte_ind)? as i64)
+        Ok(decode_num(byte_ind, got_bytes)? as i64)
     }
 }
 
@@ -153,10 +153,10 @@ fn decode_bytestring(
     cur_byte: (usize, u8),
     bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
 ) -> Result<Vec<u8>, BencodeError> {
-    let mut num_utf8 = read_until(bytes_iter, STR_SEP)?; // utf-8 encoded number
+    let mut num_utf8 = read_until(STR_SEP, bytes_iter)?; // utf-8 encoded number
     num_utf8.push(cur_byte.1);
 
-    let str_length = decode_num(num_utf8, cur_byte.0)? as usize;
+    let str_length = decode_num(cur_byte.0, num_utf8)? as usize;
 
     Ok(bytes_iter
         .take(str_length)
@@ -209,7 +209,7 @@ fn get_next(
 ) -> Result<Bencode, BencodeError> {
     match cur_byte {
         Some((byte_ind, byte)) => match byte {
-            INT_START => Ok(Bencode::Int(decode_int(bytes_iter, byte_ind)?)),
+            INT_START => Ok(Bencode::Int(decode_int(byte_ind, bytes_iter)?)),
             LIST_START => Ok(Bencode::List(decode_list(bytes_iter)?)),
             DICT_START => Ok(Bencode::Dict(decode_dict(bytes_iter)?)),
             48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 => Ok(Bencode::ByteString(
