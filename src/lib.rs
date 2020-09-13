@@ -11,8 +11,9 @@
 //!
 //! ## Development/Production Status
 //!
-//! Heavily work-in-progress with no BitTorrent features currently fully supported.
-//! You may contribute [here](https://github.com/owez/torro) if you'd like.
+//! Heavily work-in-progress with only `.torrent` (bencode) parsing currently
+//! supported. You may contribute [here](https://github.com/owez/torro) if you'd
+//! like.
 //!
 //! ## First steps
 //!
