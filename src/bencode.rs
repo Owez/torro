@@ -49,8 +49,8 @@ pub enum Bencode {
 /// [Err]([BencodeError::UnexpectedEOF]) is given). Does not return last element
 /// which is equivalent to `stop_byte`
 fn read_until(
-    bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
     stop_byte: u8,
+    bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
 ) -> Result<Vec<u8>, BencodeError> {
     let mut new_bytes: Vec<u8> = vec![];
 
@@ -76,7 +76,7 @@ fn read_until(
 /// referenced back
 ///
 /// If you want to decode a whole `i3432e` block, see [decode_int] instead
-fn decode_num(bytes: Vec<u8>, byte_ind: usize) -> Result<u32, BencodeError> {
+fn decode_num(byte_ind: usize, bytes: Vec<u8>) -> Result<u32, BencodeError> {
     if bytes.len() == 0 {
         return Err(BencodeError::NoIntGiven(byte_ind));
     } else if bytes[0] == 48 && bytes.len() > 1 {
@@ -94,10 +94,10 @@ fn decode_num(bytes: Vec<u8>, byte_ind: usize) -> Result<u32, BencodeError> {
 
 /// Decodes a full signed integer value using [decode_num] and adding minuses
 fn decode_int(
-    bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
     byte_ind: usize,
+    bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
 ) -> Result<i64, BencodeError> {
-    let mut got_bytes = read_until(bytes_iter, END)?;
+    let mut got_bytes = read_until(END, bytes_iter)?;
 
     let mut is_negative = false;
 
@@ -118,9 +118,9 @@ fn decode_int(
             return Err(BencodeError::NegativeZero(byte_ind));
         }
 
-        Ok(-(decode_num(got_bytes, byte_ind)? as i64))
+        Ok(-(decode_num(byte_ind, got_bytes)? as i64))
     } else {
-        Ok(decode_num(got_bytes, byte_ind)? as i64)
+        Ok(decode_num(byte_ind, got_bytes)? as i64)
     }
 }
 
@@ -146,6 +146,58 @@ fn decode_list(
     Ok(bencode_out)
 }
 
+/// Decodes a given bytestring into `Vec<u8>`. This requires that the `start_byte`,
+/// a base-10 number byte that indicated the start of the bytestring, to be passed
+/// due to the no-peek method of this [bytecode] parser
+fn decode_bytestring(
+    cur_byte: (usize, u8),
+    bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
+) -> Result<Vec<u8>, BencodeError> {
+    let mut num_utf8 = read_until(STR_SEP, bytes_iter)?; // utf-8 encoded number
+    num_utf8.push(cur_byte.1);
+
+    let str_length = decode_num(cur_byte.0, num_utf8)? as usize;
+
+    Ok(bytes_iter
+        .take(str_length)
+        .map(|x| x.1)
+        .collect::<Vec<u8>>())
+}
+
+/// Decodes a dictionary (json-like object or equivilant to a `BTreeMap<Vec<u8>, Bencode>`)
+fn decode_dict(
+    bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
+) -> Result<BTreeMap<Vec<u8>, Bencode>, BencodeError> {
+    let mut btree_out = BTreeMap::new();
+
+    let mut key_buf = None;
+    let mut val_buf = None;
+
+    loop {
+        match bytes_iter.next() {
+            Some(cur_byte) => {
+                if key_buf != None && val_buf != None {
+                    btree_out.insert(key_buf.take().unwrap(), val_buf.take().unwrap());
+                }
+
+                if cur_byte.1 == END {
+                    // panic!("bytes_iter: {:?}, cur_byte: {:?}", bytes_iter.collect::<Vec<(usize, u8)>>(), cur_byte);
+                    break;
+                }
+
+                if key_buf == None {
+                    key_buf = Some(decode_bytestring(cur_byte, bytes_iter)?);
+                } else if val_buf == None {
+                    val_buf = Some(get_next(Some(cur_byte), bytes_iter)?);
+                }
+            }
+            None => return Err(BencodeError::UnexpectedEOF),
+        }
+    }
+
+    Ok(btree_out)
+}
+
 /// Finds the next full [Bencode] block or returns a [BencodeError::UnexpectedEOF]
 fn get_next(
     cur_byte: Option<(usize, u8)>,
@@ -153,23 +205,13 @@ fn get_next(
 ) -> Result<Bencode, BencodeError> {
     match cur_byte {
         Some((byte_ind, byte)) => match byte {
-            INT_START => Ok(Bencode::Int(decode_int(bytes_iter, byte_ind)?)),
+            INT_START => Ok(Bencode::Int(decode_int(byte_ind, bytes_iter)?)),
             LIST_START => Ok(Bencode::List(decode_list(bytes_iter)?)),
-            48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 => {
-                // bytestring
-
-                let mut num_utf8 = read_until(bytes_iter, STR_SEP)?; // utf-8 encoded number
-                num_utf8.push(byte);
-
-                let str_length = decode_num(num_utf8, byte_ind)? as usize;
-                let u8string = bytes_iter
-                    .take(str_length)
-                    .map(|x| x.1)
-                    .collect::<Vec<u8>>();
-
-                Ok(Bencode::ByteString(u8string))
-            }
-            _ => Err(BencodeError::UnexpectedByte((byte_ind, byte))),
+            DICT_START => Ok(Bencode::Dict(decode_dict(bytes_iter)?)),
+            48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 => Ok(Bencode::ByteString(
+                decode_bytestring(cur_byte.unwrap(), bytes_iter)?,
+            )),
+            _ => Err(BencodeError::UnexpectedByte(cur_byte.unwrap())),
         },
         None => Err(BencodeError::UnexpectedEOF),
     }
@@ -296,5 +338,63 @@ mod tests {
             parse(str_to_vecu8("lee")),
             Err(BencodeError::MultipleValues)
         );
+    }
+
+    /// Tests that dict parsing (from [decode_dict]) works correctly with
+    /// well-formatted values
+    #[test]
+    fn dicts() {
+        let mut btree_test = BTreeMap::new();
+
+        assert_eq!(
+            parse(str_to_vecu8("de")),
+            Ok(Bencode::Dict(btree_test.clone()))
+        );
+
+        btree_test.insert(str_to_vecu8("int"), Bencode::Int(64));
+        assert_eq!(
+            parse(str_to_vecu8("d3:inti64ee")),
+            Ok(Bencode::Dict(btree_test))
+        );
+
+        btree_test = BTreeMap::new();
+
+        btree_test.insert(str_to_vecu8("str"), Bencode::ByteString(str_to_vecu8("ok")));
+        assert_eq!(
+            parse(str_to_vecu8("d3:str2:oke")),
+            Ok(Bencode::Dict(btree_test))
+        );
+
+        btree_test = BTreeMap::new();
+
+        btree_test.insert(
+            str_to_vecu8("first"),
+            Bencode::ByteString(str_to_vecu8("value")),
+        );
+        btree_test.insert(
+            str_to_vecu8("list"),
+            Bencode::List(vec![
+                Bencode::Int(-1000),
+                Bencode::ByteString(str_to_vecu8("lastelement")),
+            ]),
+        );
+        assert_eq!(
+            parse(str_to_vecu8(
+                "d5:first5:value4:listli-1000e11:lastelementee"
+            )),
+            Ok(Bencode::Dict(btree_test))
+        );
+    }
+
+    /// Tests that parsed dicts (from [decode_dict]) properly error when given
+    /// invalid data
+    #[test]
+    fn badf_dicts() {
+        assert_eq!(parse(str_to_vecu8("d")), Err(BencodeError::UnexpectedEOF));
+        assert_eq!(parse(str_to_vecu8("dd")), Err(BencodeError::UnexpectedEOF));
+        assert_eq!(
+            parse(str_to_vecu8("dddddddddddddddi64eeeeeeeeeeeeeee")),
+            Err(BencodeError::UnexpectedEOF)
+        ); // 15 starts, 14 ends
     }
 }

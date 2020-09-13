@@ -49,6 +49,13 @@ pub enum BencodeError {
     /// only allowed to have 1 toplevel value, if you'd like more, use a list or
     /// dict as the toplevel
     MultipleValues,
+
+    /// When a dictionary ends with the start of a new dict element but then
+    /// stops before a value is given
+    /// 
+    /// This is equivalent to `{"hello": }` in JSON (looks like `d5:helloe` in
+    /// plaintext bencode)
+    DictNoValue,
 }
 
 impl From<BencodeError> for TorroError {
