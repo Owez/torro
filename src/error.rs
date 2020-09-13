@@ -1,16 +1,27 @@
 //! All public error enums, see [TorroError] for the container enum which provides
 //! access to more specific errors
 
+use std::path::PathBuf;
+
 /// Main error enum containing multiple module-specific errors like [BencodeError]
 /// for `.torrent` (bencode) parsing
 ///
 /// All module-specific errors have a [From] trait implemented by default for
-/// this [TorroError] and are required to have at least the `Debug`, `PartialEq`
-/// and `Clone` derives added
+/// this [TorroError] and are required to have at least the `Debug` derive added
 #[derive(Debug, PartialEq, Clone)]
 pub enum TorroError {
     /// An error relating to the [crate::bencode] module
     BencodeError(BencodeError),
+
+    /// When an attemped file read failed, typically happens with
+    /// [Torrent::from_file](crate::torrent::Torrent::from_file). See
+    /// [TorroError::BadFileWrite] for errors related to file writes
+    BadFileRead(PathBuf),
+
+    /// A bad file write occured, typically happens when trying to safe a result
+    /// of a download without corrent write permissions. See
+    /// [TorroError::BadFileRead] for errors related to file reads
+    BadFileWrite(PathBuf),
 
     /// Indicates that a call has reached an unimplemented section of the library,
     /// used for placeholder returns instead of the less graceful

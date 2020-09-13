@@ -1,6 +1,6 @@
 //! Bencode parsing-related functions used inside of
 //! [Torrent::new](crate::torrent::Torrent::new) and
-//! [Torrent::from_path](crate::torrent::Torrent::from_path)
+//! [Torrent::from_file](crate::torrent::Torrent::from_file)
 //!
 //! Based on the [BEP0003](https://www.bittorrent.org/beps/bep_0003.html) bencode
 //! parsing specifications

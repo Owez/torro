@@ -4,6 +4,7 @@
 use crate::bencode;
 use crate::error;
 use crate::torrent::Torrent;
+use crate::utils::read_file_bytes;
 use std::path::PathBuf;
 
 impl Torrent {
@@ -14,8 +15,11 @@ impl Torrent {
         Err(error::TorroError::Unimplemented)
     }
 
-    /// Creates a new [Torrent] from given `.torrent` path
-    pub fn from_path(path: PathBuf) -> Result<Self, error::TorroError> {
-        Err(error::TorroError::Unimplemented)
+    /// Creates a new [Torrent] from given `.torrent` file path
+    pub fn from_file(file: PathBuf) -> Result<Self, error::TorroError> {
+        match read_file_bytes(&file) {
+            Ok(bytes) => Ok(Torrent::new(bytes)?),
+            Err(_) => Err(error::TorroError::BadFileRead(file)),
+        }
     }
 }

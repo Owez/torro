@@ -1,6 +1,9 @@
 //! Internal/private utilities like (insecure) RNG for use globally inside torro
 
 use crate::CLIENT_PREFIX;
+use std::fs::File;
+use std::io::prelude::*;
+use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Pseudorandom time-based 1 pass xorshift
@@ -38,6 +41,19 @@ pub fn generate_torro_id() -> String {
     }
 
     rand_num
+}
+
+/// Gets bytes from given `file` &[PathBuf] or returns a [std::io::Error]
+///
+/// A reference is used for `file` for optimisations with
+/// [torrent::Torrent::from_file]'s passed [PathBuf]
+pub fn read_file_bytes(file: &PathBuf) -> Result<Vec<u8>, std::io::Error> {
+    let mut file = File::open(file)?;
+    let mut contents = vec![];
+
+    file.read_to_end(&mut contents)?;
+
+    Ok(contents)
 }
 
 #[cfg(test)]

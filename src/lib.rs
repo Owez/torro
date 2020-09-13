@@ -19,15 +19,15 @@
 //!
 //! 1. You should first create a torrent structure by inputting a `.torrent` file
 //! formatted as `Vec<u8>` into [Torrent::new](crate::torrent::Torrent::new) or by
-//! passing a `.torrent` file to [Torrent::from_path](crate::torrent::Torrent::from_path)
+//! passing a `.torrent` file to [Torrent::from_file](crate::torrent::Torrent::from_file)
 //! 2. Once you have a [Torrent](crate::torrent::Torrent) struct, you have access
 //! to other parts of torro like **`COMING SOON`** or **`COMING SOON`**.
 //!
 //! ## Final notes
 //!
-//! - If you wish to use torro without using the [torrent::Torrent] structure, you
-//! may use the publically exposed lower-level functions that are not attached to
-//! it (like [bencode::parse] for example)
+//! - If you wish to use torro without using the [Torrent](crate::torrent::Torrent)
+//! structure, you may use the publically exposed lower-level functions that are
+//! not attached to it (like [bencode::parse] for example)
 
 mod utils;
 
