@@ -14,7 +14,7 @@ pub enum TorroError {
     BencodeError(BencodeError),
 
     /// An error relating to the creation of [Torrent](crate::torrent::Torrent)'s
-    /// (from [Torrent::new](crate::torrent::Torrent::new)/
+    /// (from [Torrent::new](crate::torrent::Torrent::new) or
     /// [Torrent::from_file](crate::torrent::Torrent::from_file))
     TorrentCreationError(TorrentCreationError),
 
