@@ -6,7 +6,7 @@
 use torro::bencode;
 
 fn main() {
-    let input_data = "l14:hello world31:this will be converted to bytes16:pretty cool, eh?e"
+    let input_data = "li64e22:a bencode example herei0ee"
         .as_bytes()
         .to_vec(); // our inputted data as Vec<u8>
 
