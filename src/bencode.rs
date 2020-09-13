@@ -170,29 +170,25 @@ fn decode_dict(
 ) -> Result<BTreeMap<Vec<u8>, Bencode>, BencodeError> {
     let mut btree_out = BTreeMap::new();
 
-    let mut key_buf: Option<Vec<u8>> = None;
-    let mut val_buf: Option<Bencode> = None;
+    let mut key_buf = None;
+    let mut val_buf = None;
 
     loop {
         match bytes_iter.next() {
             Some(cur_byte) => {
+                if key_buf != None && val_buf != None {
+                    btree_out.insert(key_buf.take().unwrap(), val_buf.take().unwrap());
+                }
+
                 if cur_byte.1 == END {
+                    // panic!("bytes_iter: {:?}, cur_byte: {:?}", bytes_iter.collect::<Vec<(usize, u8)>>(), cur_byte);
                     break;
                 }
 
-                // TODO: get working fix
-                match &key_buf {
-                    Some(_) => match &val_buf {
-                        Some(_) => {
-                            btree_out.insert(key_buf.take().unwrap(), val_buf.take().unwrap());
-                        }
-                        None => {
-                            val_buf = Some(get_next(Some(cur_byte), bytes_iter)?);
-                        }
-                    },
-                    None => {
-                        key_buf = Some(decode_bytestring(cur_byte, bytes_iter)?);
-                    }
+                if key_buf == None {
+                    key_buf = Some(decode_bytestring(cur_byte, bytes_iter)?);
+                } else if val_buf == None {
+                    val_buf = Some(get_next(Some(cur_byte), bytes_iter)?);
                 }
             }
             None => return Err(BencodeError::UnexpectedEOF),
@@ -344,15 +340,61 @@ mod tests {
         );
     }
 
+    /// Tests that dict parsing (from [decode_dict]) works correctly with
+    /// well-formatted values
     #[test]
     fn dicts() {
         let mut btree_test = BTreeMap::new();
 
-        btree_test.insert(str_to_vecu8("int"), Bencode::Int(64));
+        assert_eq!(
+            parse(str_to_vecu8("de")),
+            Ok(Bencode::Dict(btree_test.clone()))
+        );
 
+        btree_test.insert(str_to_vecu8("int"), Bencode::Int(64));
         assert_eq!(
             parse(str_to_vecu8("d3:inti64ee")),
             Ok(Bencode::Dict(btree_test))
         );
+
+        btree_test = BTreeMap::new();
+
+        btree_test.insert(str_to_vecu8("str"), Bencode::ByteString(str_to_vecu8("ok")));
+        assert_eq!(
+            parse(str_to_vecu8("d3:str2:oke")),
+            Ok(Bencode::Dict(btree_test))
+        );
+
+        btree_test = BTreeMap::new();
+
+        btree_test.insert(
+            str_to_vecu8("first"),
+            Bencode::ByteString(str_to_vecu8("value")),
+        );
+        btree_test.insert(
+            str_to_vecu8("list"),
+            Bencode::List(vec![
+                Bencode::Int(-1000),
+                Bencode::ByteString(str_to_vecu8("lastelement")),
+            ]),
+        );
+        assert_eq!(
+            parse(str_to_vecu8(
+                "d5:first5:value4:listli-1000e11:lastelementee"
+            )),
+            Ok(Bencode::Dict(btree_test))
+        );
+    }
+
+    /// Tests that parsed dicts (from [decode_dict]) properly error when given
+    /// invalid data
+    #[test]
+    fn badf_dicts() {
+        assert_eq!(parse(str_to_vecu8("d")), Err(BencodeError::UnexpectedEOF));
+        assert_eq!(parse(str_to_vecu8("dd")), Err(BencodeError::UnexpectedEOF));
+        assert_eq!(
+            parse(str_to_vecu8("dddddddddddddddi64eeeeeeeeeeeeeee")),
+            Err(BencodeError::UnexpectedEOF)
+        ); // 15 starts, 14 ends
     }
 }
