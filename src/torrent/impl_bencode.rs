@@ -1,7 +1,7 @@
 //! Links [Torrent] to bencode parsing and file digestion (pulling bytes from
 //! given [PathBuf]) for easy creation
 
-use crate::bencode;
+use crate::bencode::{self, Bencode};
 use crate::error;
 use crate::torrent::Torrent;
 use crate::utils::read_file_bytes;
@@ -12,7 +12,15 @@ impl Torrent {
     pub fn new(torrent_data: Vec<u8>) -> Result<Self, error::TorroError> {
         let parsed_bencode = bencode::parse(torrent_data)?;
 
-        Err(error::TorroError::Unimplemented)
+        match parsed_bencode {
+            Bencode::Dict(dict_data) => {
+                let mut piece: Option<usize> = None;
+                let mut pieces_str: Option<String> = None;
+
+                Err(error::TorroError::Unimplemented)
+            }
+            _ => Err(error::TorrentCreationError::NoTLDictionary.into()),
+        }
     }
 
     /// Creates a new [Torrent] from given `.torrent` file path
@@ -21,5 +29,23 @@ impl Torrent {
             Ok(bytes) => Ok(Torrent::new(bytes)?),
             Err(_) => Err(error::TorroError::BadFileRead(file)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Tests purposefully false data on [Torrent] to ensure correct errors
+    #[test]
+    fn torrent_new_err() {
+        assert_eq!(
+            Torrent::new("i64e".as_bytes().to_vec()),
+            Err(error::TorrentCreationError::NoTLDictionary.into())
+        );
+        assert_eq!(
+            Torrent::new("ldee".as_bytes().to_vec()),
+            Err(error::TorrentCreationError::NoTLDictionary.into())
+        );
     }
 }

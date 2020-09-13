@@ -9,6 +9,7 @@ pub use impl_bencode::*;
 /// This merges the [BEP0003](https://www.bittorrent.org/beps/bep_0003.html) spec
 /// of either a single `length` for a file given or a list of dictionaries into
 /// this singular enum for easier comprehension
+#[derive(Debug, PartialEq, Clone)]
 pub enum TorrentFile {
     /// A single file with a [usize] determining it's length in bytes (`1` in
     /// usize == 1 byte)
@@ -29,6 +30,7 @@ pub enum TorrentFile {
 /// [BEP0003](https://www.bittorrent.org/beps/bep_0003.html) and is subject to
 /// change, like any moving standard. This documentation is based off of version
 /// `0e08ddf84d8d3bf101cdf897fc312f2774588c9e`
+#[derive(Debug, PartialEq, Clone)]
 pub struct Torrent {
     /// URL for tracker
     ///

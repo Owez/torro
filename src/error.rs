@@ -13,6 +13,11 @@ pub enum TorroError {
     /// An error relating to the [crate::bencode] module
     BencodeError(BencodeError),
 
+    /// An error relating to the creation of [Torrent](crate::torrent::Torrent)'s
+    /// (from [Torrent::new](crate::torrent::Torrent::new)/
+    /// [Torrent::from_file](crate::torrent::Torrent::from_file))
+    TorrentCreationError(TorrentCreationError),
+
     /// When an attemped file read failed, typically happens with
     /// [Torrent::from_file](crate::torrent::Torrent::from_file). See
     /// [TorroError::BadFileWrite] for errors related to file writes
@@ -27,6 +32,22 @@ pub enum TorroError {
     /// used for placeholder returns instead of the less graceful
     /// `unimplemented!()` macro
     Unimplemented,
+}
+
+/// Error enum used inside of [Torrent::new](crate::torrent::Torrent::new) and
+/// [Torrent::from_file](crate::torrent::Torrent::from_file). These errors relate
+/// to the creation of new [Torrent](crate::torrent::Torrent) structures
+#[derive(Debug, PartialEq, Clone)]
+pub enum TorrentCreationError {
+    /// BEP0003 dictates that the toplevel of a bencoded `.torrent` file should
+    /// be a dictionary but it is not
+    NoTLDictionary,
+}
+
+impl From<TorrentCreationError> for TorroError {
+    fn from(error: TorrentCreationError) -> Self {
+        TorroError::TorrentCreationError(error)
+    }
 }
 
 /// Error enum for errors during parsing. If a [usize] is given, it typically
