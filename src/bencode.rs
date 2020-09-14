@@ -250,34 +250,35 @@ pub fn parse_slice(data: &[u8]) -> Result<Bencode, BencodeError> {
 mod tests {
     use super::*;
 
-    /// Turns a &[str] into a [Vec]<[u8]> for code nicity
-    fn str_to_vecu8(i: &str) -> Vec<u8> {
-        i.as_bytes().to_vec()
-    }
-
     /// Tests [parse] makes a proper [Bencode::Int] and handles any errors that
     /// may occur (from [decode_int])
     #[test]
     fn integers() {
-        assert_eq!(parse(str_to_vecu8("i50e")), Ok(Bencode::Int(50)));
-        assert_eq!(parse(str_to_vecu8("i0e")), Ok(Bencode::Int(0)));
-        assert_eq!(parse(str_to_vecu8("i1000000e")), Ok(Bencode::Int(1000000)));
+        assert_eq!(parse("i50e".as_bytes().to_vec()), Ok(Bencode::Int(50)));
+        assert_eq!(parse("i0e".as_bytes().to_vec()), Ok(Bencode::Int(0)));
         assert_eq!(
-            parse(str_to_vecu8("i-1000000e")),
+            parse("i1000000e".as_bytes().to_vec()),
+            Ok(Bencode::Int(1000000))
+        );
+        assert_eq!(
+            parse("i-1000000e".as_bytes().to_vec()),
             Ok(Bencode::Int(-1000000))
         );
 
-        assert_eq!(parse(str_to_vecu8("ie")), Err(BencodeError::NoIntGiven(0)));
         assert_eq!(
-            parse(str_to_vecu8("i00e")),
+            parse("ie".as_bytes().to_vec()),
+            Err(BencodeError::NoIntGiven(0))
+        );
+        assert_eq!(
+            parse("i00e".as_bytes().to_vec()),
             Err(BencodeError::LeadingZeros(0))
         );
         assert_eq!(
-            parse(str_to_vecu8("i-0e")),
+            parse("i-0e".as_bytes().to_vec()),
             Err(BencodeError::NegativeZero(0))
         );
         assert_eq!(
-            parse(str_to_vecu8("i-00e")),
+            parse("i-00e".as_bytes().to_vec()),
             Err(BencodeError::NegativeZero(0))
         );
     }
@@ -308,19 +309,19 @@ mod tests {
     /// Tests [parse] makes a well-formed list (from [decode_list])
     #[test]
     fn lists() {
-        assert_eq!(parse(str_to_vecu8("le")), Ok(Bencode::List(vec![])));
+        assert_eq!(parse("le".as_bytes().to_vec()), Ok(Bencode::List(vec![])));
         assert_eq!(
-            parse(str_to_vecu8("li64ee")),
+            parse("li64ee".as_bytes().to_vec()),
             Ok(Bencode::List(vec![Bencode::Int(64)]))
         );
         assert_eq!(
-            parse(str_to_vecu8("li-200ei0ee")),
+            parse("li-200ei0ee".as_bytes().to_vec()),
             Ok(Bencode::List(vec![Bencode::Int(-200), Bencode::Int(0)]))
         );
         assert_eq!(
-            parse(str_to_vecu8("l6:stringi0ei0ee")),
+            parse("l6:stringi0ei0ee".as_bytes().to_vec()),
             Ok(Bencode::List(vec![
-                Bencode::ByteString(str_to_vecu8("string")),
+                Bencode::ByteString("string".as_bytes().to_vec()),
                 Bencode::Int(0),
                 Bencode::Int(0)
             ]))
@@ -331,11 +332,11 @@ mod tests {
     #[test]
     fn correct_end_mark() {
         assert_eq!(
-            parse(str_to_vecu8("i64ee")),
+            parse("i64ee".as_bytes().to_vec()),
             Err(BencodeError::MultipleValues)
         );
         assert_eq!(
-            parse(str_to_vecu8("lee")),
+            parse("lee".as_bytes().to_vec()),
             Err(BencodeError::MultipleValues)
         );
     }
@@ -347,41 +348,46 @@ mod tests {
         let mut btree_test = BTreeMap::new();
 
         assert_eq!(
-            parse(str_to_vecu8("de")),
+            parse("de".as_bytes().to_vec()),
             Ok(Bencode::Dict(btree_test.clone()))
         );
 
-        btree_test.insert(str_to_vecu8("int"), Bencode::Int(64));
+        btree_test.insert("int".as_bytes().to_vec(), Bencode::Int(64));
         assert_eq!(
-            parse(str_to_vecu8("d3:inti64ee")),
-            Ok(Bencode::Dict(btree_test))
-        );
-
-        btree_test = BTreeMap::new();
-
-        btree_test.insert(str_to_vecu8("str"), Bencode::ByteString(str_to_vecu8("ok")));
-        assert_eq!(
-            parse(str_to_vecu8("d3:str2:oke")),
+            parse("d3:inti64ee".as_bytes().to_vec()),
             Ok(Bencode::Dict(btree_test))
         );
 
         btree_test = BTreeMap::new();
 
         btree_test.insert(
-            str_to_vecu8("first"),
-            Bencode::ByteString(str_to_vecu8("value")),
+            "str".as_bytes().to_vec(),
+            Bencode::ByteString("ok".as_bytes().to_vec()),
+        );
+        assert_eq!(
+            parse("d3:str2:oke".as_bytes().to_vec()),
+            Ok(Bencode::Dict(btree_test))
+        );
+
+        btree_test = BTreeMap::new();
+
+        btree_test.insert(
+            "first".as_bytes().to_vec(),
+            Bencode::ByteString("value".as_bytes().to_vec()),
         );
         btree_test.insert(
-            str_to_vecu8("list"),
+            "list".as_bytes().to_vec(),
             Bencode::List(vec![
                 Bencode::Int(-1000),
-                Bencode::ByteString(str_to_vecu8("lastelement")),
+                Bencode::ByteString("lastelement".as_bytes().to_vec()),
             ]),
         );
         assert_eq!(
-            parse(str_to_vecu8(
+            parse(
                 "d5:first5:value4:listli-1000e11:lastelementee"
-            )),
+                    .as_bytes()
+                    .to_vec()
+            ),
             Ok(Bencode::Dict(btree_test))
         );
     }
@@ -390,10 +396,16 @@ mod tests {
     /// invalid data
     #[test]
     fn badf_dicts() {
-        assert_eq!(parse(str_to_vecu8("d")), Err(BencodeError::UnexpectedEOF));
-        assert_eq!(parse(str_to_vecu8("dd")), Err(BencodeError::UnexpectedEOF));
         assert_eq!(
-            parse(str_to_vecu8("dddddddddddddddi64eeeeeeeeeeeeeee")),
+            parse("d".as_bytes().to_vec()),
+            Err(BencodeError::UnexpectedEOF)
+        );
+        assert_eq!(
+            parse("dd".as_bytes().to_vec()),
+            Err(BencodeError::UnexpectedEOF)
+        );
+        assert_eq!(
+            parse("dddddddddddddddi64eeeeeeeeeeeeeee".as_bytes().to_vec()),
             Err(BencodeError::UnexpectedEOF)
         ); // 15 starts, 14 ends
     }

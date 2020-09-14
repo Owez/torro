@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 impl Torrent {
     /// Creates a new [Torrent] from given `torrent_data` formatted as [Vec]<[u8]>
-    /// 
+    ///
     /// If an error is encountered, it will be a
     /// [TorrentCreationError](error::TorrentCreationError) wrapped inside of
     /// [TorroError::TorrentCreationError](error::TorroError::TorrentCreationError)
