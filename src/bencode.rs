@@ -26,7 +26,7 @@ const STR_SEP: u8 = 58;
 
 /// A found bencode object whilst parsing, only one is returned from [parse] due
 /// to the bencode spec
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub enum Bencode {
     /// [Lexographically-ordered](https://en.wikipedia.org/wiki/Lexicographical_order)
     /// dictionary from `d3:keyi6e9:other key12:second valuee`.
@@ -161,10 +161,36 @@ fn decode_bytestring(
     Ok(bytes_iter.take(string_len as usize).map(|x| x.1).collect())
 }
 
+/// Checks the lexographic order of many individual items against each other in
+/// a dictionary. `byte_ind` required for any errors that may occur
+fn check_dict_order(
+    byte_ind: usize,
+    to_check: &BTreeMap<Vec<u8>, Bencode>,
+) -> Result<(), BencodeError> {
+    let mut to_check_iter = to_check.iter().map(|(k, _)| k);
+
+    let last_element = match to_check_iter.next() {
+        Some(le) => le,
+        None => return Ok(()), // zero-element iterator
+    };
+
+    for element in to_check_iter {
+        if element < last_element {
+            return Err(BencodeError::UnorderedDictionary((
+                byte_ind,
+                to_check.clone(),
+            )));
+        }
+    }
+
+    Ok(())
+}
+
 /// Decodes a dictionary (json-like object or equivilant to a `BTreeMap<Vec<u8>, Bencode>`)
 fn decode_dict(
     bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
 ) -> Result<BTreeMap<Vec<u8>, Bencode>, BencodeError> {
+    let mut start_ind: Option<usize> = None;
     let mut btree_out = BTreeMap::new();
 
     let mut key_buf = None;
@@ -173,12 +199,15 @@ fn decode_dict(
     loop {
         match bytes_iter.next() {
             Some(cur_byte) => {
+                if start_ind == None {
+                    start_ind = Some(cur_byte.0);
+                }
+
                 if key_buf != None && val_buf != None {
                     btree_out.insert(key_buf.take().unwrap(), val_buf.take().unwrap());
                 }
 
                 if cur_byte.1 == END {
-                    // panic!("bytes_iter: {:?}, cur_byte: {:?}", bytes_iter.collect::<Vec<(usize, u8)>>(), cur_byte);
                     break;
                 }
 
@@ -191,6 +220,8 @@ fn decode_dict(
             None => return Err(BencodeError::UnexpectedEOF),
         }
     }
+
+    check_dict_order(start_ind.unwrap(), &btree_out)?;
 
     Ok(btree_out)
 }

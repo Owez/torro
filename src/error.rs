@@ -106,6 +106,12 @@ pub enum BencodeError {
     /// only allowed to have 1 toplevel value, if you'd like more, use a list or
     /// dict as the toplevel
     MultipleValues,
+
+    /// An unordered (e.g. non-alphabetically-ordered) dictionary has been
+    /// provided but BEP0003 requires
+    /// [alphabetically-ordered](https://en.wikipedia.org/wiki/Alphabetical_order)
+    /// dictionaries
+    UnorderedDictionary((usize, std::collections::BTreeMap<Vec<u8>, crate::bencode::Bencode>)),
 }
 
 impl From<BencodeError> for TorroError {
