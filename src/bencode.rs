@@ -294,6 +294,8 @@ mod tests {
             "00",
             "i00e",
             "0x\\1",
+            "12:helloi64eee12:i30000e",
+            "",
         ];
 
         for input in inputs {
@@ -385,6 +387,21 @@ mod tests {
         assert_eq!(
             parse(
                 "d5:first5:value4:listli-1000e11:lastelementee"
+                    .as_bytes()
+                    .to_vec()
+            ),
+            Ok(Bencode::Dict(btree_test))
+        );
+
+        btree_test = BTreeMap::new();
+
+        btree_test.insert(
+            "announce".as_bytes().to_vec(),
+            Bencode::ByteString("udp://tracker.torrent.eu.org:451".as_bytes().to_vec()),
+        );
+        assert_eq!(
+            parse(
+                "d8:announce32:udp://tracker.torrent.eu.org:451e"
                     .as_bytes()
                     .to_vec()
             ),
