@@ -153,15 +153,12 @@ fn decode_bytestring(
     cur_byte: (usize, u8),
     bytes_iter: &mut Enumerate<impl Iterator<Item = u8>>,
 ) -> Result<Vec<u8>, BencodeError> {
-    let mut num_utf8 = read_until(STR_SEP, bytes_iter)?; // utf-8 encoded number
-    num_utf8.push(cur_byte.1);
+    let mut len_utf8 = vec![cur_byte.1];
+    len_utf8.append(&mut read_until(STR_SEP, bytes_iter)?);
 
-    let str_length = decode_num(cur_byte.0, num_utf8)? as usize;
+    let string_len = decode_num(cur_byte.0, len_utf8)?;
 
-    Ok(bytes_iter
-        .take(str_length)
-        .map(|x| x.1)
-        .collect::<Vec<u8>>())
+    Ok(bytes_iter.take(string_len as usize).map(|x| x.1).collect())
 }
 
 /// Decodes a dictionary (json-like object or equivilant to a `BTreeMap<Vec<u8>, Bencode>`)
