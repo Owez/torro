@@ -59,12 +59,18 @@ pub fn read_file_bytes(file: &PathBuf) -> Result<Vec<u8>, std::io::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::thread;
+    use std::time;
 
     /// Checks that multiple calls to [xorshift128] don't result in same number
     #[test]
     fn xorshift128_nodupe() {
         for _ in 0..1000 {
-            assert_ne!(randish(), randish());
+            let first_collect = randish();
+
+            thread::sleep(time::Duration::from_millis(20));
+
+            assert_ne!(first_collect, randish());
         }
     }
 
