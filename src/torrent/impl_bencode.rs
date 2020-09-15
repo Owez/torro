@@ -18,7 +18,7 @@ impl Torrent {
 
         match parsed_bencode {
             Bencode::Dict(dict_data) => {
-                let mut piece = match dict_data.get(&"piece".as_bytes().to_vec()) {
+                let piece = match dict_data.get(&"piece".as_bytes().to_vec()) {
                     Some(piece_bencode) => match piece_bencode {
                         Bencode::Int(found_piece) => found_piece,
                         other => {
@@ -30,7 +30,7 @@ impl Torrent {
                     None => return Err(error::TorrentCreationError::NoPieceFound.into()),
                 }; // `piece` key
 
-                let mut pieces_raw = match dict_data.get(&"pieces".as_bytes().to_vec()) {
+                let pieces_raw = match dict_data.get(&"pieces".as_bytes().to_vec()) {
                     Some(pieces_bencode) => match pieces_bencode {
                         Bencode::ByteString(found_pieces_raw) => found_pieces_raw,
                         other => {
