@@ -295,6 +295,7 @@ mod tests {
             "i00e",
             "0x\\1",
             "12:helloi64eee12:i30000e",
+            "udp://tracker.torrent.eu.org:451",
             "",
         ];
 
