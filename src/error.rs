@@ -42,6 +42,31 @@ pub enum TorrentCreationError {
     /// BEP0003 dictates that the toplevel of a bencoded `.torrent` file should
     /// be a dictionary but it is not
     NoTLDictionary,
+
+    /// When the given `piece` key was given the wrong type. The `piece` key
+    /// should be an integer (e.g. [Bencode::Int](crate::bencode::Bencode::Int))
+    ///
+    /// Not to be confused with [TorrentCreationError::PiecesWrongType]
+    PieceWrongType(crate::bencode::Bencode),
+
+    /// When the given `pieces` key was given the wrong type. The `pieces` key
+    /// should be a bytestring (e.g.
+    /// [Bencode::ByteString](crate::bencode::Bencode::ByteString))
+    ///
+    /// Not to be confused with [TorrentCreationError::PieceWrongType]
+    PiecesWrongType(crate::bencode::Bencode),
+
+    /// [Torrent](crate::torrent::Torrent) requires a `piece` key inside the
+    /// top-level `.torrent` (bencode) dictionary but it wasn't found
+    ///
+    /// Not to be confused with [TorrentCreationError::NoPiecesFound]
+    NoPieceFound,
+
+    /// [Torrent](crate::torrent::Torrent) requires a `pieces` key inside the
+    /// top-level `.torrent` (bencode) dictionary but it wasn't found
+    ///
+    /// Not to be confused with [TorrentCreationError::NoPieceFound]
+    NoPiecesFound,
 }
 
 impl From<TorrentCreationError> for TorroError {

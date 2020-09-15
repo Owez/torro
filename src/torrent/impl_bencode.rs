@@ -18,8 +18,31 @@ impl Torrent {
 
         match parsed_bencode {
             Bencode::Dict(dict_data) => {
-                let mut piece: Option<usize> = None;
-                let mut pieces_str: Option<String> = None;
+                let mut piece = match dict_data.get(&"piece".as_bytes().to_vec()) {
+                    Some(piece_bencode) => match piece_bencode {
+                        Bencode::Int(found_piece) => found_piece,
+                        other => {
+                            return Err(
+                                error::TorrentCreationError::PieceWrongType(other.clone()).into()
+                            )
+                        }
+                    },
+                    None => return Err(error::TorrentCreationError::NoPieceFound.into()),
+                }; // `piece` key
+
+                let mut pieces_raw = match dict_data.get(&"pieces".as_bytes().to_vec()) {
+                    Some(pieces_bencode) => match pieces_bencode {
+                        Bencode::ByteString(found_pieces_raw) => found_pieces_raw,
+                        other => {
+                            return Err(
+                                error::TorrentCreationError::PiecesWrongType(other.clone()).into()
+                            )
+                        }
+                    },
+                    None => return Err(error::TorrentCreationError::NoPiecesFound.into()),
+                }; // raw, long vec of all pieces, to be split
+
+                // TODO: finish
 
                 Err(error::TorroError::Unimplemented)
             }

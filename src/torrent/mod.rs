@@ -70,15 +70,16 @@ pub struct Torrent {
     ///
     /// # BitTorrent Description
     ///
-    /// *Please note that torro represents this "string whose length is a multiple
-    /// of 20" as a [Vec]<[String]> with each string containing a hash for simplicity*
+    /// *Please note that torro represents this "(byte)string whose length is a
+    /// multiple of 20" as a `Vec<Vec<u8>>` with each iteration of top-most vec
+    /// containing a `Vec<u8>`-coded hash for simplicity*
     ///
     /// ```none
     /// `pieces` maps to a string whose length is a multiple of 20. It is to be
     /// subdivided into strings of length 20, each of which is the SHA1 hash of
     /// the piece at the corresponding index.
     /// ```
-    pub pieces: Vec<String>,
+    pub pieces: Vec<Vec<u8>>,
 
     /// The overall file structure of the torrent, see the [TorrentFile] enum for
     /// more infomation
