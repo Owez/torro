@@ -65,10 +65,10 @@ mod tests {
     /// Checks that multiple calls to [xorshift128] don't result in same number
     #[test]
     fn xorshift128_nodupe() {
-        for _ in 0..1000 {
+        for _ in 0..100 {
             let first_collect = randish();
 
-            thread::sleep(time::Duration::from_millis(20));
+            thread::sleep(time::Duration::from_millis(1));
 
             assert_ne!(first_collect, randish());
         }
