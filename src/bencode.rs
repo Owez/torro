@@ -455,4 +455,27 @@ mod tests {
             Err(BencodeError::UnexpectedEOF)
         ); // 15 starts, 14 ends
     }
+
+    /// Tests that dictionaries are in proper [lexographic]() ordering and that
+    /// proper errors are given when they are not
+    #[test]
+    fn dict_lexographic_order() {
+        let mut btree_test = BTreeMap::new();
+
+        btree_test.insert("abc".as_bytes().to_vec(), Bencode::Int(0));
+        btree_test.insert("def".as_bytes().to_vec(), Bencode::Int(0));
+        assert_eq!(
+            parse("d3:abci0e3:defi0ee".as_bytes().to_vec()),
+            Ok(Bencode::Dict(btree_test))
+        );
+
+        btree_test = BTreeMap::new();
+
+        btree_test.insert("xyz".as_bytes().to_vec(), Bencode::Int(0));
+        btree_test.insert("abc".as_bytes().to_vec(), Bencode::Int(0));
+        assert_eq!(
+            parse("d3:xyzi0e3:abci0ee".as_bytes().to_vec()),
+            Err(BencodeError::UnorderedDictionary((0, btree_test)))
+        );
+    }
 }
