@@ -67,6 +67,10 @@ pub enum TorrentCreationError {
     ///
     /// Not to be confused with [TorrentCreationError::NoPieceFound]
     NoPiecesFound,
+
+    /// [Torrent](crate::torrent::Torrent) requires an `announce_url` key inside
+    /// the top-level `.torrent` (bencode) dictionary but it wasn't found
+    NoAnnounceURLFound
 }
 
 impl From<TorrentCreationError> for TorroError {
