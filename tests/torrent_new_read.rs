@@ -11,5 +11,5 @@ const DATA_PATH_PREFIX: &str = "./tests/data/";
 fn torrent_from_file() {
     let file = PathBuf::from(format!("{}tiny.torrent", DATA_PATH_PREFIX));
 
-    // Torrent::from_file(file).unwrap(); // FIXME: uncomment when Torrent::new works
+    Torrent::from_file(file).unwrap();
 }
