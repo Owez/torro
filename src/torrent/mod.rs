@@ -9,15 +9,32 @@ pub use impl_bencode::*;
 /// This merges the [BEP0003](https://www.bittorrent.org/beps/bep_0003.html) spec
 /// of either a single `length` for a file given or a list of dictionaries into
 /// this singular enum for easier comprehension
+///
+/// ## Documentation sourcing
+///
+/// All "BitTorrent Description" headings are taken from
+/// [BEP0003](https://www.bittorrent.org/beps/bep_0003.html) and is subject to
+/// change, like any moving standard. This documentation is based off of version
+/// `0e08ddf84d8d3bf101cdf897fc312f2774588c9e`
 #[derive(Debug, PartialEq, Clone)]
 pub enum TorrentFile {
     /// A single file with a [usize] determining it's length in bytes (`1` in
     /// usize == 1 byte)
     Single(usize),
 
-    /// Multiple files with a similar [usize] but also a path that decends into
-    /// the [Torrent::name] directory
-    MultiFile(Vec<(usize, String)>),
+    /// Multiple files with a similar [usize] to [TorrentFile::Single] as the first
+    /// element and a [Vec] of [String] subdirectories
+    ///
+    /// # BitTorrent Description
+    ///
+    /// ```none
+    /// length - The length of the file, in bytes.
+    ///
+    /// path - A list of UTF-8 encoded strings corresponding to subdirectory names,
+    /// the last of which is the actual file name (a zero length list is an error
+    /// case).
+    /// ```
+    MultiFile(Vec<(usize, Vec<String>)>),
 }
 
 /// The primary representation of a torrent, created from a parsing function

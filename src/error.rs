@@ -43,6 +43,10 @@ pub enum TorrentCreationError {
     /// be a dictionary but it is not
     NoTLDictionary,
 
+    /// A bytestring was designated to be a standard UTF-8 plaintext string but
+    /// contained invalid bytes that [String::from_utf8] could not parse
+    BadUTF8String(Vec<u8>),
+
     /// When the given `announce` key was given the wrong type. The
     /// `announce` key should be a bytestring (e.g.
     /// [Bencode::ByteString](crate::bencode::Bencode::ByteString))
@@ -70,14 +74,33 @@ pub enum TorrentCreationError {
     /// be a bytestring (e.g. [Bencode::ByteString](crate::bencode::Bencode::ByteString))
     NameWrongType(crate::bencode::Bencode),
 
-    /// When the given `length` key was given the wrong type. The `length` key
+    /// When a/the given `length` key was given the wrong type. The `length` key
     /// should be an integer (e.g. [Bencode::Int](crate::bencode::Bencode::Int))
     LengthWrongType(crate::bencode::Bencode),
 
     /// When the given `announce` key was given the wrong type. The
     /// `announce` key should be a dictionary (e.g.
     /// [Bencode::Dict](crate::bencode::Bencode::Dict))
+    ///
+    /// Not to be confused with [TorrentCreationError::FileWrongType]
     FilesWrongType(crate::bencode::Bencode),
+
+    /// When an element in the `files` list was not a bencoded dictionary (e.g.
+    /// [Bencode::Dict](crate::bencode::Bencode::Dict))
+    ///
+    /// Not to be confused with [TorrentCreationError::FilesWrongType]
+    FileWrongType(crate::bencode::Bencode),
+
+    /// When the `path` key in an element of the `files` list was given the
+    /// wrong type. The `path` key should be a list (e.g.
+    /// [Bencode::List](crate::bencode::Bencode::List))
+    PathWrongType(crate::bencode::Bencode),
+
+    /// When a subdirectory inside of a `path` key in an element of the `files`
+    /// list was given the wrong type. All subdirectory elements inside the `path`
+    /// key should be bytestrings (e.g.
+    /// [Bencode::ByteString](crate::bencode::Bencode::ByteString))
+    SubdirWrongType(crate::bencode::Bencode),
 
     /// [Torrent](crate::torrent::Torrent) requires an `announce` key inside
     /// the top-level dictionary but it wasn't found
@@ -115,6 +138,10 @@ pub enum TorrentCreationError {
     /// According to BEP0003, either `length` or `files` should be given, not
     /// neither or both
     BothLengthFiles,
+
+    /// No `path` was given for a file element in the `files` list or the
+    /// (byte)string given was of length 0
+    NoPathFound,
 }
 
 impl From<TorrentCreationError> for TorroError {

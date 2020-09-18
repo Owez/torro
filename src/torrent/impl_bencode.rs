@@ -3,7 +3,7 @@
 
 use crate::bencode::{self, Bencode};
 use crate::error;
-use crate::torrent::Torrent;
+use crate::torrent::{Torrent, TorrentFile};
 use crate::utils::read_file_bytes;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -25,10 +25,13 @@ enum TorrentBencodeKey {
     Pieces,
     /// `name` key inside of the [TorrentBencodeKey::Info] dictionary
     Name,
-    /// `length` key inside of the [TorrentBencodeKey::Info] dictionary
+    /// `length` key inside of the [TorrentBencodeKey::Info] dictionary or a
+    /// dictionary inside of the [TorrentBencodeKey::Files] list
     Length,
     /// `files` key inside of the [TorrentBencodeKey::Info] dictionary
     Files,
+    /// `path` key inside of a element of the [TorrentBencodeKey::Files] list
+    Path,
 }
 
 impl TorrentBencodeKey {
@@ -42,6 +45,7 @@ impl TorrentBencodeKey {
             TorrentBencodeKey::Name => "name",
             TorrentBencodeKey::Length => "length",
             TorrentBencodeKey::Files => "files",
+            TorrentBencodeKey::Path => "path",
         }
         .as_bytes()
         .to_vec()
@@ -61,6 +65,7 @@ impl TorrentBencodeKey {
             TorrentBencodeKey::Length | TorrentBencodeKey::Files => {
                 error::TorrentCreationError::NoLengthFiles
             }
+            TorrentBencodeKey::Path => error::TorrentCreationError::NoPathFound,
         }
     }
 }
@@ -70,10 +75,55 @@ impl TorrentBencodeKey {
 fn get_dict_item(
     dict: &BTreeMap<Vec<u8>, Bencode>,
     key: TorrentBencodeKey,
-) -> Result<Bencode, error::TorroError> {
+) -> Result<Bencode, error::TorrentCreationError> {
     match dict.get(&key.as_vecu8()) {
         Some(value) => Ok(value.clone()),
-        None => Err(key.missing_err().into()),
+        None => Err(key.missing_err()),
+    }
+}
+
+/// Wraps [String::from_utf8] inside a convinient
+/// `Result<String, error::TorrentCreationError>` for simplified `.into()`/`?`
+/// error processing
+fn vecu8_to_string(input: Vec<u8>) -> Result<String, error::TorrentCreationError> {
+    // TODO: better solution then `.clone()`
+    match String::from_utf8(input.clone()) {
+        Ok(value) => Ok(value),
+        Err(_) => Err(error::TorrentCreationError::BadUTF8String(input)),
+    }
+}
+
+/// Makes a new element for [TorrentFile::MultiFile] from given unparsed, raw
+/// `file_raw` [Bencode::Dict]. It is not required to check the `file_raw`
+/// [Bencode] type beforehand, this method will do for you
+fn make_multifile(file_raw: Bencode) -> Result<(usize, Vec<String>), error::TorrentCreationError> {
+    match file_raw {
+        Bencode::Dict(file_dict) => {
+            let length = match get_dict_item(&file_dict, TorrentBencodeKey::Length)? {
+                Bencode::Int(found_length) => found_length as usize,
+                other => return Err(error::TorrentCreationError::LengthWrongType(other)),
+            };
+            let path_raw_vec = match get_dict_item(&file_dict, TorrentBencodeKey::Path)? {
+                Bencode::List(found_path_raw_vec) => found_path_raw_vec,
+                other => return Err(error::TorrentCreationError::PathWrongType(other)),
+            };
+
+            if path_raw_vec.len() == 0 {
+                return Err(error::TorrentCreationError::NoPathFound);
+            }
+
+            let mut path = vec![];
+
+            for subdir_raw in path_raw_vec {
+                path.push(match subdir_raw {
+                    Bencode::ByteString(found_subdir) => vecu8_to_string(found_subdir)?,
+                    other => return Err(error::TorrentCreationError::SubdirWrongType(other)),
+                })
+            }
+
+            Ok((length, path))
+        }
+        other => return Err(error::TorrentCreationError::FileWrongType(other)),
     }
 }
 
@@ -134,10 +184,10 @@ impl Torrent {
                     },
                     Err(_) => None,
                 };
-                let files_raw: Option<BTreeMap<Vec<u8>, Bencode>> =
+                let files_raw: Option<Vec<Bencode>> =
                     match get_dict_item(&info_dict, TorrentBencodeKey::Files) {
                         Ok(files_bencode) => match files_bencode {
-                            Bencode::Dict(found_files_raw) => Some(found_files_raw),
+                            Bencode::List(found_files_raw) => Some(found_files_raw),
                             other => {
                                 return Err(
                                     error::TorrentCreationError::FilesWrongType(other).into()
@@ -152,6 +202,24 @@ impl Torrent {
                 } else if length.is_some() && files_raw.is_some() {
                     return Err(error::TorrentCreationError::BothLengthFiles.into());
                 }
+
+                let file_structure = if files_raw.is_some() {
+                    if length.is_some() {
+                        return Err(error::TorrentCreationError::BothLengthFiles.into());
+                    }
+
+                    let mut files = vec![];
+
+                    for file_raw in files_raw.unwrap() {
+                        files.push(make_multifile(file_raw)?);
+                    }
+
+                    TorrentFile::MultiFile(files)
+                } else if length.is_some() {
+                    TorrentFile::Single(length.unwrap() as usize)
+                } else {
+                    return Err(error::TorrentCreationError::NoLengthFiles.into());
+                };
 
                 Err(error::TorroError::Unimplemented) // TODO: finish
             }
