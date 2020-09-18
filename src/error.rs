@@ -61,6 +61,10 @@ pub enum TorrentCreationError {
     /// [Bencode::ByteString](crate::bencode::Bencode::ByteString))
     AnnounceURLWrongType(crate::bencode::Bencode),
 
+    /// When the given `name` key was given the wrong type. The `name` key should
+    /// be a bytestring (e.g. [Bencode::ByteString](crate::bencode::Bencode::ByteString))
+    NameWrongType(crate::bencode::Bencode),
+
     /// When the given `length` key was given the wrong type. The `length` key
     /// should be an integer (e.g. [Bencode::Int](crate::bencode::Bencode::Int))
     LengthWrongType(crate::bencode::Bencode),
@@ -85,6 +89,10 @@ pub enum TorrentCreationError {
     /// [Torrent](crate::torrent::Torrent) requires an `announce_url` key inside
     /// the top-level `.torrent` (bencode) dictionary but it wasn't found
     NoAnnounceURLFound,
+
+    /// [Torrent](crate::torrent::Torrent) requires a `name` key inside
+    /// the top-level `.torrent` (bencode) dictionary but it wasn't found
+    NoNameFound,
 
     /// Neither the `length` or `files` keys where given in the top-level of the
     /// given bencode

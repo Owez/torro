@@ -17,6 +17,8 @@ enum TorrentBencodeKey {
     Pieces,
     /// `announce_url` key
     AnnounceURL,
+    /// `name` key
+    Name,
     /// `length` key
     Length,
     /// `files` key
@@ -29,6 +31,7 @@ impl TorrentBencodeKey {
             TorrentBencodeKey::Piece => "piece",
             TorrentBencodeKey::Pieces => "pieces",
             TorrentBencodeKey::AnnounceURL => "announce_url",
+            TorrentBencodeKey::Name => "name",
             TorrentBencodeKey::Length => "length",
             TorrentBencodeKey::Files => "files",
         }
@@ -43,6 +46,7 @@ impl TorrentBencodeKey {
             TorrentBencodeKey::Piece => error::TorrentCreationError::NoPieceFound,
             TorrentBencodeKey::Pieces => error::TorrentCreationError::NoPiecesFound,
             TorrentBencodeKey::AnnounceURL => error::TorrentCreationError::NoAnnounceURLFound,
+            TorrentBencodeKey::Name => error::TorrentCreationError::NoNameFound,
             TorrentBencodeKey::Length | TorrentBencodeKey::Files => {
                 error::TorrentCreationError::NoLengthFiles
             }
@@ -87,6 +91,10 @@ impl Torrent {
                     other => {
                         return Err(error::TorrentCreationError::AnnounceURLWrongType(other).into())
                     }
+                };
+                let name = match get_dict_item(&dict_data, TorrentBencodeKey::Name)? {
+                    Bencode::ByteString(found_name) => found_name,
+                    other => return Err(error::TorrentCreationError::NameWrongType(other).into()),
                 };
 
                 let length: Option<i64> = match get_dict_item(&dict_data, TorrentBencodeKey::Length)
