@@ -127,4 +127,51 @@ mod tests {
             Err(error::TorrentCreationError::NoTLDictionary.into())
         );
     }
+
+    /// Tests that [TorrentBencodeKey::AnnounceURL] returns the wrong type
+    /// correctly as an error
+    #[test]
+    fn announce_url_badtype() {
+        assert_eq!(
+            Torrent::new(
+                "d12:announce_urli64e5:piecei0e6:pieces0:e"
+                    .as_bytes()
+                    .to_vec()
+            ),
+            Err(error::TorrentCreationError::AnnounceURLWrongType(Bencode::Int(64)).into())
+        );
+    }
+
+    /// Tests that [TorrentBencodeKey::Piece] returns the wrong type correctly
+    /// as an error
+    #[test]
+    fn piece_badtype() {
+        assert_eq!(
+            Torrent::new(
+                "d12:announce_url0:5:piece5:wrong6:pieces0:e"
+                    .as_bytes()
+                    .to_vec()
+            ),
+            Err(
+                error::TorrentCreationError::PieceWrongType(Bencode::ByteString(
+                    "wrong".as_bytes().to_vec()
+                ))
+                .into()
+            )
+        );
+    }
+
+    /// Tests that [TorrentBencodeKey::Pieces] returns the wrong type correctly
+    /// as an error
+    #[test]
+    fn pieces_badtype() {
+        assert_eq!(
+            Torrent::new(
+                "d12:announce_url0:5:piecei0e6:piecesi9999ee"
+                    .as_bytes()
+                    .to_vec()
+            ),
+            Err(error::TorrentCreationError::PiecesWrongType(Bencode::Int(9999)).into())
+        );
+    }
 }
