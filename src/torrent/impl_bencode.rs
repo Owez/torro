@@ -11,26 +11,29 @@ use std::path::PathBuf;
 /// Used as an organisation enum for managing [Torrent::new] when pulling from a
 /// bencode dict, see [get_dict_item] for the main usage of this emum
 enum TorrentBencodeKey {
-    /// ` piece` key
+    /// `announce` top-level key
+    Announce,
+    /// `info` top-level key
+    Info,
+    /// ` piece` key inside of the [TorrentBencodeKey::Info] dictionary
     Piece,
-    /// `pieces` key
+    /// `pieces` key inside of the [TorrentBencodeKey::Info] dictionary
     Pieces,
-    /// `announce_url` key
-    AnnounceURL,
-    /// `name` key
+    /// `name` key inside of the [TorrentBencodeKey::Info] dictionary
     Name,
-    /// `length` key
+    /// `length` key inside of the [TorrentBencodeKey::Info] dictionary
     Length,
-    /// `files` key
+    /// `files` key inside of the [TorrentBencodeKey::Info] dictionary
     Files,
 }
 
 impl TorrentBencodeKey {
     fn as_vecu8(&self) -> Vec<u8> {
         match &self {
+            TorrentBencodeKey::Announce => "announce",
+            TorrentBencodeKey::Info => "info",
             TorrentBencodeKey::Piece => "piece",
             TorrentBencodeKey::Pieces => "pieces",
-            TorrentBencodeKey::AnnounceURL => "announce_url",
             TorrentBencodeKey::Name => "name",
             TorrentBencodeKey::Length => "length",
             TorrentBencodeKey::Files => "files",
@@ -43,9 +46,10 @@ impl TorrentBencodeKey {
     /// instance of [TorrentBencodeKey] is missing
     fn missing_err(&self) -> error::TorrentCreationError {
         match self {
+            TorrentBencodeKey::Announce => error::TorrentCreationError::NoAnnounceFound,
+            TorrentBencodeKey::Info => error::TorrentCreationError::NoInfoFound,
             TorrentBencodeKey::Piece => error::TorrentCreationError::NoPieceFound,
             TorrentBencodeKey::Pieces => error::TorrentCreationError::NoPiecesFound,
-            TorrentBencodeKey::AnnounceURL => error::TorrentCreationError::NoAnnounceURLFound,
             TorrentBencodeKey::Name => error::TorrentCreationError::NoNameFound,
             TorrentBencodeKey::Length | TorrentBencodeKey::Files => {
                 error::TorrentCreationError::NoLengthFiles
@@ -77,27 +81,32 @@ impl Torrent {
 
         match parsed_bencode {
             Bencode::Dict(dict_data) => {
-                let piece = match get_dict_item(&dict_data, TorrentBencodeKey::Piece)? {
+                // top-level dictionary
+                let announce = match get_dict_item(&dict_data, TorrentBencodeKey::Announce)? {
+                    Bencode::ByteString(found_announce) => found_announce,
+                    other => {
+                        return Err(error::TorrentCreationError::AnnounceWrongType(other).into())
+                    }
+                };
+                let info_dict = match get_dict_item(&dict_data, TorrentBencodeKey::Info)? {
+                    Bencode::Dict(found_info) => found_info,
+                    other => return Err(error::TorrentCreationError::InfoWrongType(other).into()),
+                };
+
+                // inside `info` dictionary
+                let piece = match get_dict_item(&info_dict, TorrentBencodeKey::Piece)? {
                     Bencode::Int(found_piece) => found_piece,
                     other => return Err(error::TorrentCreationError::PieceWrongType(other).into()),
                 };
-                let pieces_raw = match get_dict_item(&dict_data, TorrentBencodeKey::Pieces)? {
+                let pieces_raw = match get_dict_item(&info_dict, TorrentBencodeKey::Pieces)? {
                     Bencode::ByteString(found_pieces_raw) => found_pieces_raw,
                     other => return Err(error::TorrentCreationError::PiecesWrongType(other).into()),
                 };
-                let announce_url = match get_dict_item(&dict_data, TorrentBencodeKey::AnnounceURL)?
-                {
-                    Bencode::ByteString(found_announce_url) => found_announce_url,
-                    other => {
-                        return Err(error::TorrentCreationError::AnnounceURLWrongType(other).into())
-                    }
-                };
-                let name = match get_dict_item(&dict_data, TorrentBencodeKey::Name)? {
+                let name = match get_dict_item(&info_dict, TorrentBencodeKey::Name)? {
                     Bencode::ByteString(found_name) => found_name,
                     other => return Err(error::TorrentCreationError::NameWrongType(other).into()),
                 };
-
-                let length: Option<i64> = match get_dict_item(&dict_data, TorrentBencodeKey::Length)
+                let length: Option<i64> = match get_dict_item(&info_dict, TorrentBencodeKey::Length)
                 {
                     Ok(length_raw) => match length_raw {
                         Bencode::Int(found_length) => Some(found_length),
@@ -108,7 +117,7 @@ impl Torrent {
                     Err(_) => None,
                 };
                 let files_raw: Option<BTreeMap<Vec<u8>, Bencode>> =
-                    match get_dict_item(&dict_data, TorrentBencodeKey::Files) {
+                    match get_dict_item(&info_dict, TorrentBencodeKey::Files) {
                         Ok(files_bencode) => match files_bencode {
                             Bencode::Dict(found_files_raw) => Some(found_files_raw),
                             other => {
@@ -158,17 +167,13 @@ mod tests {
         );
     }
 
-    /// Tests that [TorrentBencodeKey::AnnounceURL] returns the wrong type
+    /// Tests that [TorrentBencodeKey::Announce] returns the wrong type
     /// correctly as an error
     #[test]
-    fn announce_url_badtype() {
+    fn announce_badtype() {
         assert_eq!(
-            Torrent::new(
-                "d12:announce_urli64e5:piecei0e6:pieces0:e"
-                    .as_bytes()
-                    .to_vec()
-            ),
-            Err(error::TorrentCreationError::AnnounceURLWrongType(Bencode::Int(64)).into())
+            Torrent::new("d8:announcei64e5:piecei0e6:pieces0:e".as_bytes().to_vec()),
+            Err(error::TorrentCreationError::AnnounceWrongType(Bencode::Int(64)).into())
         );
     }
 
@@ -178,7 +183,7 @@ mod tests {
     fn piece_badtype() {
         assert_eq!(
             Torrent::new(
-                "d12:announce_url0:5:piece5:wrong6:pieces0:e"
+                "d8:announce0:4:infod5:piece5:wrong6:pieces0:ee"
                     .as_bytes()
                     .to_vec()
             ),
@@ -197,7 +202,7 @@ mod tests {
     fn pieces_badtype() {
         assert_eq!(
             Torrent::new(
-                "d12:announce_url0:5:piecei0e6:piecesi9999ee"
+                "d8:announce0:4:infod5:piecei0e6:piecesi9999eee"
                     .as_bytes()
                     .to_vec()
             ),
@@ -211,14 +216,14 @@ mod tests {
     fn missing_torrent_types() {
         assert_eq!(
             Torrent::new("d5:piecei0e6:pieces0:e".as_bytes().to_vec()),
-            Err(error::TorrentCreationError::NoAnnounceURLFound.into())
+            Err(error::TorrentCreationError::NoAnnounceFound.into())
         );
         assert_eq!(
-            Torrent::new("d12:announce_url0:6:pieces0:e".as_bytes().to_vec()),
+            Torrent::new("d8:announce0:4:infod6:pieces0:ee".as_bytes().to_vec()),
             Err(error::TorrentCreationError::NoPieceFound.into())
         );
         assert_eq!(
-            Torrent::new("d12:announce_url0:5:piecei0ee".as_bytes().to_vec()),
+            Torrent::new("d8:announce0:4:infod5:piecei0eee".as_bytes().to_vec()),
             Err(error::TorrentCreationError::NoPiecesFound.into())
         );
     }
