@@ -174,4 +174,22 @@ mod tests {
             Err(error::TorrentCreationError::PiecesWrongType(Bencode::Int(9999)).into())
         );
     }
+
+    /// Tests that all [TorrentBencodeKey]'s are correctly reported missing when
+    /// non-existant
+    #[test]
+    fn missing_torrent_types() {
+        assert_eq!(
+            Torrent::new("d5:piecei0e6:pieces0:e".as_bytes().to_vec()),
+            Err(error::TorrentCreationError::NoAnnounceURLFound.into())
+        );
+        assert_eq!(
+            Torrent::new("d12:announce_url0:6:pieces0:e".as_bytes().to_vec()),
+            Err(error::TorrentCreationError::NoPieceFound.into())
+        );
+        assert_eq!(
+            Torrent::new("d12:announce_url0:5:piecei0ee".as_bytes().to_vec()),
+            Err(error::TorrentCreationError::NoPiecesFound.into())
+        );
+    }
 }
