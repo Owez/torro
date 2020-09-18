@@ -24,3 +24,12 @@ fn torrent_from_ubuntu() {
 
     Torrent::from_file(file).unwrap();
 }
+
+/// Tests the proper reading for [Torrent::from_file] with the
+/// `tails-amd64-4.10.img.torrent` file
+#[test]
+fn torrent_from_tails() {
+    let file = PathBuf::from(format!("{}tails-amd64-4.10.img.torrent", DATA_PATH_PREFIX));
+
+    Torrent::from_file(file).unwrap();
+}
