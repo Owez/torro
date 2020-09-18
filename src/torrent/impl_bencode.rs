@@ -140,7 +140,7 @@ impl Torrent {
             Bencode::Dict(dict_data) => {
                 // top-level dictionary
                 let announce = match get_dict_item(&dict_data, TorrentBencodeKey::Announce)? {
-                    Bencode::ByteString(found_announce) => found_announce,
+                    Bencode::ByteString(found_announce) => vecu8_to_string(found_announce)?,
                     other => {
                         return Err(error::TorrentCreationError::AnnounceWrongType(other).into())
                     }
@@ -171,7 +171,7 @@ impl Torrent {
                     other => return Err(error::TorrentCreationError::PiecesWrongType(other).into()),
                 };
                 let name = match get_dict_item(&info_dict, TorrentBencodeKey::Name)? {
-                    Bencode::ByteString(found_name) => found_name,
+                    Bencode::ByteString(found_name) => vecu8_to_string(found_name)?,
                     other => return Err(error::TorrentCreationError::NameWrongType(other).into()),
                 };
                 let length: Option<i64> = match get_dict_item(&info_dict, TorrentBencodeKey::Length)
@@ -196,12 +196,6 @@ impl Torrent {
                         },
                         Err(_) => None,
                     };
-
-                if length.is_none() && files_raw.is_none() {
-                    return Err(error::TorrentCreationError::NoLengthFiles.into());
-                } else if length.is_some() && files_raw.is_some() {
-                    return Err(error::TorrentCreationError::BothLengthFiles.into());
-                }
 
                 let file_structure = if files_raw.is_some() {
                     if length.is_some() {
