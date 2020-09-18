@@ -252,9 +252,71 @@ mod tests {
     #[test]
     fn announce_badtype() {
         assert_eq!(
-            Torrent::new("d8:announcei64e5:piecei0e6:pieces0:e".as_bytes().to_vec()),
-            Err(error::TorrentCreationError::AnnounceWrongType(Bencode::Int(64)).into())
+            Torrent::new("d8:announcei0e5:piecei0e6:pieces0:e".as_bytes().to_vec()),
+            Err(error::TorrentCreationError::AnnounceWrongType(Bencode::Int(0)).into())
         );
+    }
+
+    /// Tests that [TorrentBencodeKey::Name] returns the wrong type correctly as
+    /// an error
+    #[test]
+    fn name_badtype() {
+        assert_eq!(
+            Torrent::new(
+                "d8:announce0:4:infod4:namei0e5:piecei0e6:pieces0:6:lengthi0eee"
+                    .as_bytes()
+                    .to_vec()
+            ),
+            Err(error::TorrentCreationError::NameWrongType(Bencode::Int(0)).into())
+        )
+    }
+
+    /// Tests that [TorrentBencodeKey::Files] returns the wrong type correctly
+    /// as an error
+    #[test]
+    fn files_badtype() {
+        assert_eq!(
+            Torrent::new(
+                "d8:announce0:4:infod4:name12:test_torrent5:piecei0e6:pieces0:5:filesi0eee"
+                    .as_bytes()
+                    .to_vec()
+            ),
+            Err(error::TorrentCreationError::FilesWrongType(Bencode::Int(0)).into())
+        )
+    }
+
+    /// Tests that a file element inside of [TorrentBencodeKey::Files] returns
+    /// the wrong type correctly as an error
+    #[test]
+    fn file_element_badtype() {
+        assert_eq!(
+            Torrent::new(
+                "d8:announce0:4:infod4:name12:test_torrent5:piecei0e6:pieces0:5:filesli0eeee"
+                    .as_bytes()
+                    .to_vec()
+            ),
+            Err(error::TorrentCreationError::FileWrongType(Bencode::Int(0)).into())
+        )
+    }
+
+    /// Tests that the `length` element of a file inside of [TorrentBencodeKey::Files]
+    /// returns the wrong type correctly as an error
+    #[test]
+    fn length_file_element_badtype() {
+        assert_eq!(
+            Torrent::new("d8:announce0:4:infod4:name12:test_torrent5:piecei0e6:pieces0:5:filesld6:length0:4:pathl0:eeeee".as_bytes().to_vec()),
+            Err(error::TorrentCreationError::LengthWrongType(Bencode::ByteString(vec![])).into())
+        )
+    }
+
+    /// Tests that the `path` element of a file inside of [TorrentBencodeKey::Files]
+    /// returns the wrong type correctly as an error
+    #[test]
+    fn path_file_element_badtype() {
+        assert_eq!(
+            Torrent::new("d8:announce0:4:infod4:name12:test_torrent5:piecei0e6:pieces0:5:filesld6:lengthi0e4:pathi0eeeee".as_bytes().to_vec()),
+            Err(error::TorrentCreationError::PathWrongType(Bencode::Int(0)).into())
+        )
     }
 
     /// Tests that [TorrentBencodeKey::Piece] returns the wrong type correctly
@@ -328,6 +390,14 @@ mod tests {
                     .to_vec()
             ),
             Err(error::TorrentCreationError::NoAnnounceFound.into())
+        );
+        assert_eq!(
+            Torrent::new(
+                "d8:announce0:4:infod5:piecei0e6:pieces0:6:lengthi0eee"
+                    .as_bytes()
+                    .to_vec()
+            ),
+            Err(error::TorrentCreationError::NoNameFound.into())
         );
         assert_eq!(
             Torrent::new(
