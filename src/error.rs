@@ -56,6 +56,11 @@ pub enum TorrentCreationError {
     /// Not to be confused with [TorrentCreationError::PieceWrongType]
     PiecesWrongType(crate::bencode::Bencode),
 
+    /// When the given `announce_url` key was given the wrong type. The
+    /// `announce_url` key should be a bytestring (e.g.
+    /// [Bencode::ByteString](crate::bencode::Bencode::ByteString))
+    AnnounceURLWrongType(crate::bencode::Bencode),
+
     /// [Torrent](crate::torrent::Torrent) requires a `piece` key inside the
     /// top-level `.torrent` (bencode) dictionary but it wasn't found
     ///
@@ -70,7 +75,7 @@ pub enum TorrentCreationError {
 
     /// [Torrent](crate::torrent::Torrent) requires an `announce_url` key inside
     /// the top-level `.torrent` (bencode) dictionary but it wasn't found
-    NoAnnounceURLFound
+    NoAnnounceURLFound,
 }
 
 impl From<TorrentCreationError> for TorroError {

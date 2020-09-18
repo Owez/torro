@@ -83,7 +83,16 @@ impl Torrent {
                         )
                     }
                 };
-                let announce_url = get_dict_item(&dict_data, TorrentBencodeKey::AnnounceURL)?;
+                let announce_url = match get_dict_item(&dict_data, TorrentBencodeKey::AnnounceURL)?
+                {
+                    Bencode::ByteString(found_announce_url) => found_announce_url,
+                    other => {
+                        return Err(error::TorrentCreationError::AnnounceURLWrongType(
+                            other.clone(),
+                        )
+                        .into())
+                    }
+                };
 
                 // TODO: finish
 
