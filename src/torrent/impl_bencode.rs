@@ -202,11 +202,21 @@ mod tests {
     fn pieces_badtype() {
         assert_eq!(
             Torrent::new(
-                "d8:announce0:4:infod5:piecei0e6:piecesi9999eee"
+                "d8:announce0:4:infod5:piecei0e6:piecesi0eee"
                     .as_bytes()
                     .to_vec()
             ),
-            Err(error::TorrentCreationError::PiecesWrongType(Bencode::Int(9999)).into())
+            Err(error::TorrentCreationError::PiecesWrongType(Bencode::Int(0)).into())
+        );
+    }
+
+    /// Tests that [TorrentBencodeKey::Info] returns the wrong type correctly
+    /// as an error
+    #[test]
+    fn info_badtype() {
+        assert_eq!(
+            Torrent::new("d8:announce0:4:infoi0ee".as_bytes().to_vec()),
+            Err(error::TorrentCreationError::InfoWrongType(Bencode::Int(0)).into())
         );
     }
 
@@ -215,15 +225,31 @@ mod tests {
     #[test]
     fn missing_torrent_types() {
         assert_eq!(
-            Torrent::new("d5:piecei0e6:pieces0:e".as_bytes().to_vec()),
+            Torrent::new("d8:announce0:e".as_bytes().to_vec()),
+            Err(error::TorrentCreationError::NoInfoFound.into())
+        );
+        assert_eq!(
+            Torrent::new(
+                "d4:infod4:name12:test_torrent5:piecei0e6:pieces0:6:lengthi0eee"
+                    .as_bytes()
+                    .to_vec()
+            ),
             Err(error::TorrentCreationError::NoAnnounceFound.into())
         );
         assert_eq!(
-            Torrent::new("d8:announce0:4:infod6:pieces0:ee".as_bytes().to_vec()),
+            Torrent::new(
+                "d8:announce0:4:infod4:name12:test_torrent6:pieces0:6:lengthi0eee"
+                    .as_bytes()
+                    .to_vec()
+            ),
             Err(error::TorrentCreationError::NoPieceFound.into())
         );
         assert_eq!(
-            Torrent::new("d8:announce0:4:infod5:piecei0eee".as_bytes().to_vec()),
+            Torrent::new(
+                "d8:announce0:4:infod4:name12:test_torrent5:piecei0e6:lengthi0eee"
+                    .as_bytes()
+                    .to_vec()
+            ),
             Err(error::TorrentCreationError::NoPiecesFound.into())
         );
     }
