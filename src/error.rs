@@ -61,6 +61,15 @@ pub enum TorrentCreationError {
     /// [Bencode::ByteString](crate::bencode::Bencode::ByteString))
     AnnounceURLWrongType(crate::bencode::Bencode),
 
+    /// When the given `length` key was given the wrong type. The `length` key
+    /// should be an integer (e.g. [Bencode::Int](crate::bencode::Bencode::Int))
+    LengthWrongType(crate::bencode::Bencode),
+
+    /// When the given `announce_url` key was given the wrong type. The
+    /// `announce_url` key should be a dictionary (e.g.
+    /// [Bencode::Dict](crate::bencode::Bencode::Dict))
+    FilesWrongType(crate::bencode::Bencode),
+
     /// [Torrent](crate::torrent::Torrent) requires a `piece` key inside the
     /// top-level `.torrent` (bencode) dictionary but it wasn't found
     ///
@@ -76,6 +85,19 @@ pub enum TorrentCreationError {
     /// [Torrent](crate::torrent::Torrent) requires an `announce_url` key inside
     /// the top-level `.torrent` (bencode) dictionary but it wasn't found
     NoAnnounceURLFound,
+
+    /// Neither the `length` or `files` keys where given in the top-level of the
+    /// given bencode
+    ///
+    /// According to BEP0003, either `length` or `files` should be given, not
+    /// neither or both
+    NoLengthFiles,
+
+    /// Both the `length` and `files` where passed when only one should be given
+    ///
+    /// According to BEP0003, either `length` or `files` should be given, not
+    /// neither or both
+    BothLengthFiles,
 }
 
 impl From<TorrentCreationError> for TorroError {

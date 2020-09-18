@@ -11,9 +11,16 @@ use std::path::PathBuf;
 /// Used as an organisation enum for managing [Torrent::new] when pulling from a
 /// bencode dict, see [get_dict_item] for the main usage of this emum
 enum TorrentBencodeKey {
+    /// ` piece` key
     Piece,
+    /// `pieces` key
     Pieces,
+    /// `announce_url` key
     AnnounceURL,
+    /// `length` key
+    Length,
+    /// `files` key
+    Files,
 }
 
 impl TorrentBencodeKey {
@@ -22,6 +29,8 @@ impl TorrentBencodeKey {
             TorrentBencodeKey::Piece => "piece",
             TorrentBencodeKey::Pieces => "pieces",
             TorrentBencodeKey::AnnounceURL => "announce_url",
+            TorrentBencodeKey::Length => "length",
+            TorrentBencodeKey::Files => "files",
         }
         .as_bytes()
         .to_vec()
@@ -29,17 +38,14 @@ impl TorrentBencodeKey {
 
     /// Finds appropriate error to provide for downstream [get_dict_item] if an
     /// instance of [TorrentBencodeKey] is missing
-    fn missing_err(&self) -> error::TorroError {
+    fn missing_err(&self) -> error::TorrentCreationError {
         match self {
-            TorrentBencodeKey::Piece => {
-                error::TorroError::TorrentCreationError(error::TorrentCreationError::NoPieceFound)
+            TorrentBencodeKey::Piece => error::TorrentCreationError::NoPieceFound,
+            TorrentBencodeKey::Pieces => error::TorrentCreationError::NoPiecesFound,
+            TorrentBencodeKey::AnnounceURL => error::TorrentCreationError::NoAnnounceURLFound,
+            TorrentBencodeKey::Length | TorrentBencodeKey::Files => {
+                error::TorrentCreationError::NoLengthFiles
             }
-            TorrentBencodeKey::Pieces => {
-                error::TorroError::TorrentCreationError(error::TorrentCreationError::NoPiecesFound)
-            }
-            TorrentBencodeKey::AnnounceURL => error::TorroError::TorrentCreationError(
-                error::TorrentCreationError::NoAnnounceURLFound,
-            ),
         }
     }
 }
@@ -52,7 +58,7 @@ fn get_dict_item(
 ) -> Result<Bencode, error::TorroError> {
     match dict.get(&key.as_vecu8()) {
         Some(value) => Ok(value.clone()),
-        None => Err(key.missing_err()),
+        None => Err(key.missing_err().into()),
     }
 }
 
@@ -69,34 +75,50 @@ impl Torrent {
             Bencode::Dict(dict_data) => {
                 let piece = match get_dict_item(&dict_data, TorrentBencodeKey::Piece)? {
                     Bencode::Int(found_piece) => found_piece,
-                    other => {
-                        return Err(
-                            error::TorrentCreationError::PieceWrongType(other.clone()).into()
-                        )
-                    }
+                    other => return Err(error::TorrentCreationError::PieceWrongType(other).into()),
                 };
                 let pieces_raw = match get_dict_item(&dict_data, TorrentBencodeKey::Pieces)? {
                     Bencode::ByteString(found_pieces_raw) => found_pieces_raw,
-                    other => {
-                        return Err(
-                            error::TorrentCreationError::PiecesWrongType(other.clone()).into()
-                        )
-                    }
+                    other => return Err(error::TorrentCreationError::PiecesWrongType(other).into()),
                 };
                 let announce_url = match get_dict_item(&dict_data, TorrentBencodeKey::AnnounceURL)?
                 {
                     Bencode::ByteString(found_announce_url) => found_announce_url,
                     other => {
-                        return Err(error::TorrentCreationError::AnnounceURLWrongType(
-                            other.clone(),
-                        )
-                        .into())
+                        return Err(error::TorrentCreationError::AnnounceURLWrongType(other).into())
                     }
                 };
 
-                // TODO: finish
+                let length: Option<i64> = match get_dict_item(&dict_data, TorrentBencodeKey::Length)
+                {
+                    Ok(length_raw) => match length_raw {
+                        Bencode::Int(found_length) => Some(found_length),
+                        other => {
+                            return Err(error::TorrentCreationError::LengthWrongType(other).into())
+                        }
+                    },
+                    Err(_) => None,
+                };
+                let files_raw: Option<BTreeMap<Vec<u8>, Bencode>> =
+                    match get_dict_item(&dict_data, TorrentBencodeKey::Files) {
+                        Ok(files_bencode) => match files_bencode {
+                            Bencode::Dict(found_files_raw) => Some(found_files_raw),
+                            other => {
+                                return Err(
+                                    error::TorrentCreationError::FilesWrongType(other).into()
+                                )
+                            }
+                        },
+                        Err(_) => None,
+                    };
 
-                Err(error::TorroError::Unimplemented)
+                if length.is_none() && files_raw.is_none() {
+                    return Err(error::TorrentCreationError::NoLengthFiles.into());
+                } else if length.is_some() && files_raw.is_some() {
+                    return Err(error::TorrentCreationError::BothLengthFiles.into());
+                }
+
+                Err(error::TorroError::Unimplemented) // TODO: finish
             }
             _ => Err(error::TorrentCreationError::NoTLDictionary.into()),
         }
