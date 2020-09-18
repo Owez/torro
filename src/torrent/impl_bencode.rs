@@ -15,8 +15,12 @@ enum TorrentBencodeKey {
     Announce,
     /// `info` top-level key
     Info,
-    /// ` piece` key inside of the [TorrentBencodeKey::Info] dictionary
+    /// `piece` key inside of the [TorrentBencodeKey::Info] dictionary
     Piece,
+    /// `piece length` key which isn't part of the BEP0003 standard but used
+    /// commonly anyway instead of [TorrentBencodeKey::Piece] for some reason.
+    /// Fits inside of the [TorrentBencodeKey::Info] dictionary
+    PieceLength,
     /// `pieces` key inside of the [TorrentBencodeKey::Info] dictionary
     Pieces,
     /// `name` key inside of the [TorrentBencodeKey::Info] dictionary
@@ -33,6 +37,7 @@ impl TorrentBencodeKey {
             TorrentBencodeKey::Announce => "announce",
             TorrentBencodeKey::Info => "info",
             TorrentBencodeKey::Piece => "piece",
+            TorrentBencodeKey::PieceLength => "piece length",
             TorrentBencodeKey::Pieces => "pieces",
             TorrentBencodeKey::Name => "name",
             TorrentBencodeKey::Length => "length",
@@ -48,7 +53,9 @@ impl TorrentBencodeKey {
         match self {
             TorrentBencodeKey::Announce => error::TorrentCreationError::NoAnnounceFound,
             TorrentBencodeKey::Info => error::TorrentCreationError::NoInfoFound,
-            TorrentBencodeKey::Piece => error::TorrentCreationError::NoPieceFound,
+            TorrentBencodeKey::Piece | TorrentBencodeKey::PieceLength => {
+                error::TorrentCreationError::NoPieceFound
+            }
             TorrentBencodeKey::Pieces => error::TorrentCreationError::NoPiecesFound,
             TorrentBencodeKey::Name => error::TorrentCreationError::NoNameFound,
             TorrentBencodeKey::Length | TorrentBencodeKey::Files => {
@@ -94,9 +101,20 @@ impl Torrent {
                 };
 
                 // inside `info` dictionary
-                let piece = match get_dict_item(&info_dict, TorrentBencodeKey::Piece)? {
-                    Bencode::Int(found_piece) => found_piece,
-                    other => return Err(error::TorrentCreationError::PieceWrongType(other).into()),
+                // (see [TorrentBencodeKey::PieceLength] as to why this is ugly)
+                let piece = match get_dict_item(&info_dict, TorrentBencodeKey::Piece) {
+                    Ok(piece_raw) => match piece_raw {
+                        Bencode::Int(found_piece) => found_piece,
+                        other => {
+                            return Err(error::TorrentCreationError::PieceWrongType(other).into())
+                        }
+                    },
+                    Err(_) => match get_dict_item(&info_dict, TorrentBencodeKey::PieceLength)? {
+                        Bencode::Int(found_piece) => found_piece,
+                        other => {
+                            return Err(error::TorrentCreationError::PieceWrongType(other).into())
+                        }
+                    },
                 };
                 let pieces_raw = match get_dict_item(&info_dict, TorrentBencodeKey::Pieces)? {
                     Bencode::ByteString(found_pieces_raw) => found_pieces_raw,
@@ -193,7 +211,20 @@ mod tests {
                 ))
                 .into()
             )
-        );
+        ); // `piece`
+        assert_eq!(
+            Torrent::new(
+                "d8:announce0:4:infod12:piece length5:wrong6:pieces0:ee"
+                    .as_bytes()
+                    .to_vec()
+            ),
+            Err(
+                error::TorrentCreationError::PieceWrongType(Bencode::ByteString(
+                    "wrong".as_bytes().to_vec()
+                ))
+                .into()
+            )
+        ); // `piece length`
     }
 
     /// Tests that [TorrentBencodeKey::Pieces] returns the wrong type correctly
