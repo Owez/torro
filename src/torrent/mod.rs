@@ -83,7 +83,8 @@ pub struct Torrent {
     /// ```
     pub piece_length: usize,
 
-    /// A vector of SHA hashes corrosponding to each [Torrent::piece]
+    /// A vector of binary-encoded SHA hashes corrosponding to each
+    /// [Torrent::piece_length]
     ///
     /// # BitTorrent Description
     ///
