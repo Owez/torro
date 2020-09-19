@@ -15,8 +15,8 @@ enum TorrentBencodeKey {
     Announce,
     /// `info` top-level key
     Info,
-    /// `piece` key inside of the [TorrentBencodeKey::Info] dictionary
-    Piece,
+    /// `piece length` key inside of the [TorrentBencodeKey::Info] dictionary
+    PieceLength,
     /// `pieces` key inside of the [TorrentBencodeKey::Info] dictionary
     Pieces,
     /// `name` key inside of the [TorrentBencodeKey::Info] dictionary
@@ -35,7 +35,7 @@ impl TorrentBencodeKey {
         match &self {
             TorrentBencodeKey::Announce => "announce",
             TorrentBencodeKey::Info => "info",
-            TorrentBencodeKey::Piece => "piece",
+            TorrentBencodeKey::PieceLength => "piece length",
             TorrentBencodeKey::Pieces => "pieces",
             TorrentBencodeKey::Name => "name",
             TorrentBencodeKey::Length => "length",
@@ -52,7 +52,7 @@ impl TorrentBencodeKey {
         match self {
             TorrentBencodeKey::Announce => error::TorrentCreationError::NoAnnounceFound,
             TorrentBencodeKey::Info => error::TorrentCreationError::NoInfoFound,
-            TorrentBencodeKey::Piece => error::TorrentCreationError::NoPieceFound,
+            TorrentBencodeKey::PieceLength => error::TorrentCreationError::NoPieceLengthFound,
             TorrentBencodeKey::Pieces => error::TorrentCreationError::NoPiecesFound,
             TorrentBencodeKey::Name => error::TorrentCreationError::NoNameFound,
             TorrentBencodeKey::Length | TorrentBencodeKey::Files => {
@@ -140,9 +140,9 @@ impl Torrent {
                 };
 
                 // inside `info` dictionary
-                let piece_length = match get_dict_item(&info_dict, TorrentBencodeKey::Piece)? {
+                let piece_length = match get_dict_item(&info_dict, TorrentBencodeKey::PieceLength)? {
                     Bencode::Int(found_piece_length) => found_piece_length as usize,
-                    other => return Err(error::TorrentCreationError::PieceWrongType(other).into()),
+                    other => return Err(error::TorrentCreationError::PieceLengthWrongType(other).into()),
                 };
                 let pieces_raw = match get_dict_item(&info_dict, TorrentBencodeKey::Pieces)? {
                     Bencode::ByteString(found_pieces_raw) => found_pieces_raw,
@@ -241,7 +241,7 @@ mod tests {
     #[test]
     fn announce_badtype() {
         assert_eq!(
-            Torrent::new("d8:announcei0e5:piecei0e6:pieces0:e".as_bytes().to_vec()),
+            Torrent::new("d8:announcei0e12:piece lengthi0e6:pieces0:e".as_bytes().to_vec()),
             Err(error::TorrentCreationError::AnnounceWrongType(Bencode::Int(0)).into())
         );
     }
@@ -252,7 +252,7 @@ mod tests {
     fn name_badtype() {
         assert_eq!(
             Torrent::new(
-                "d8:announce0:4:infod4:namei0e5:piecei0e6:pieces0:6:lengthi0eee"
+                "d8:announce0:4:infod4:namei0e12:piece lengthi0e6:pieces0:6:lengthi0eee"
                     .as_bytes()
                     .to_vec()
             ),
@@ -266,7 +266,7 @@ mod tests {
     fn files_badtype() {
         assert_eq!(
             Torrent::new(
-                "d8:announce0:4:infod4:name12:test_torrent5:piecei0e6:pieces0:5:filesi0eee"
+                "d8:announce0:4:infod4:name12:test_torrent12:piece lengthi0e6:pieces0:5:filesi0eee"
                     .as_bytes()
                     .to_vec()
             ),
@@ -280,7 +280,7 @@ mod tests {
     fn file_element_badtype() {
         assert_eq!(
             Torrent::new(
-                "d8:announce0:4:infod4:name12:test_torrent5:piecei0e6:pieces0:5:filesli0eeee"
+                "d8:announce0:4:infod4:name12:test_torrent12:piece lengthi0e6:pieces0:5:filesli0eeee"
                     .as_bytes()
                     .to_vec()
             ),
@@ -293,7 +293,7 @@ mod tests {
     #[test]
     fn length_file_element_badtype() {
         assert_eq!(
-            Torrent::new("d8:announce0:4:infod4:name12:test_torrent5:piecei0e6:pieces0:5:filesld6:length0:4:pathl0:eeeee".as_bytes().to_vec()),
+            Torrent::new("d8:announce0:4:infod4:name12:test_torrent12:piece lengthi0e6:pieces0:5:filesld6:length0:4:pathl0:eeeee".as_bytes().to_vec()),
             Err(error::TorrentCreationError::LengthWrongType(Bencode::ByteString(vec![])).into())
         )
     }
@@ -303,7 +303,7 @@ mod tests {
     #[test]
     fn path_file_element_badtype() {
         assert_eq!(
-            Torrent::new("d8:announce0:4:infod4:name12:test_torrent5:piecei0e6:pieces0:5:filesld6:lengthi0e4:pathi0eeeee".as_bytes().to_vec()),
+            Torrent::new("d8:announce0:4:infod4:name12:test_torrent12:piece lengthi0e6:pieces0:5:filesld6:lengthi0e4:pathi0eeeee".as_bytes().to_vec()),
             Err(error::TorrentCreationError::PathWrongType(Bencode::Int(0)).into())
         )
     }
@@ -314,25 +314,12 @@ mod tests {
     fn piece_badtype() {
         assert_eq!(
             Torrent::new(
-                "d8:announce0:4:infod5:piece5:wrong6:pieces0:ee"
-                    .as_bytes()
-                    .to_vec()
-            ),
-            Err(
-                error::TorrentCreationError::PieceWrongType(Bencode::ByteString(
-                    "wrong".as_bytes().to_vec()
-                ))
-                .into()
-            )
-        ); // `piece`
-        assert_eq!(
-            Torrent::new(
                 "d8:announce0:4:infod12:piece length5:wrong6:pieces0:ee"
                     .as_bytes()
                     .to_vec()
             ),
             Err(
-                error::TorrentCreationError::PieceWrongType(Bencode::ByteString(
+                error::TorrentCreationError::PieceLengthWrongType(Bencode::ByteString(
                     "wrong".as_bytes().to_vec()
                 ))
                 .into()
@@ -346,7 +333,7 @@ mod tests {
     fn pieces_badtype() {
         assert_eq!(
             Torrent::new(
-                "d8:announce0:4:infod5:piecei0e6:piecesi0eee"
+                "d8:announce0:4:infod12:piece lengthi0e6:piecesi0eee"
                     .as_bytes()
                     .to_vec()
             ),
@@ -374,7 +361,7 @@ mod tests {
         );
         assert_eq!(
             Torrent::new(
-                "d4:infod4:name12:test_torrent5:piecei0e6:pieces0:6:lengthi0eee"
+                "d4:infod4:name12:test_torrent12:piece lengthi0e6:pieces0:6:lengthi0eee"
                     .as_bytes()
                     .to_vec()
             ),
@@ -382,7 +369,7 @@ mod tests {
         );
         assert_eq!(
             Torrent::new(
-                "d8:announce0:4:infod5:piecei0e6:pieces0:6:lengthi0eee"
+                "d8:announce0:4:infod12:piece lengthi0e6:pieces0:6:lengthi0eee"
                     .as_bytes()
                     .to_vec()
             ),
@@ -394,11 +381,11 @@ mod tests {
                     .as_bytes()
                     .to_vec()
             ),
-            Err(error::TorrentCreationError::NoPieceFound.into())
+            Err(error::TorrentCreationError::NoPieceLengthFound.into())
         );
         assert_eq!(
             Torrent::new(
-                "d8:announce0:4:infod4:name12:test_torrent5:piecei0e6:lengthi0eee"
+                "d8:announce0:4:infod4:name12:test_torrent12:piece lengthi0e6:lengthi0eee"
                     .as_bytes()
                     .to_vec()
             ),

@@ -57,17 +57,17 @@ pub enum TorrentCreationError {
     /// [Bencode::Dict](crate::bencode::Bencode::Dict))
     InfoWrongType(crate::bencode::Bencode),
 
-    /// When the given `piece` key was given the wrong type. The `piece` key
+    /// When the given `piece length` key was given the wrong type. The `piece length` key
     /// should be an integer (e.g. [Bencode::Int](crate::bencode::Bencode::Int))
     ///
     /// Not to be confused with [TorrentCreationError::PiecesWrongType]
-    PieceWrongType(crate::bencode::Bencode),
+    PieceLengthWrongType(crate::bencode::Bencode),
 
     /// When the given `pieces` key was given the wrong type. The `pieces` key
     /// should be a bytestring (e.g.
     /// [Bencode::ByteString](crate::bencode::Bencode::ByteString))
     ///
-    /// Not to be confused with [TorrentCreationError::PieceWrongType]
+    /// Not to be confused with [TorrentCreationError::PieceLengthWrongType]
     PiecesWrongType(crate::bencode::Bencode),
 
     /// When the given `name` key was given the wrong type. The `name` key should
@@ -110,16 +110,16 @@ pub enum TorrentCreationError {
     /// the top-level dictionary but it wasn't found
     NoInfoFound,
 
-    /// [Torrent](crate::torrent::Torrent) requires a `piece` key inside the
+    /// [Torrent](crate::torrent::Torrent) requires a `piece length` key inside the
     /// `info` dictionary but it wasn't found
     ///
     /// Not to be confused with [TorrentCreationError::NoPiecesFound]
-    NoPieceFound,
+    NoPieceLengthFound,
 
     /// [Torrent](crate::torrent::Torrent) requires a `pieces` key inside the
     /// info dictionary but it wasn't found
     ///
-    /// Not to be confused with [TorrentCreationError::NoPieceFound]
+    /// Not to be confused with [TorrentCreationError::NoPieceLengthFound]
     NoPiecesFound,
 
     /// [Torrent](crate::torrent::Torrent) requires a `name` key inside
