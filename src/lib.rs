@@ -12,8 +12,9 @@
 //! ## Development/Production Status
 //!
 //! Actively developed but heavily work-in-progress with only `.torrent` to
-//! Torrent user-friendly struct currently fully supported, see the torro
-//! [roadmap](https://github.com/Owez/torro/issues/20) for future plans.
+//! user-friendly [Torrent](crate::torrent::Torrent) struct currently fully
+//! supported, see the torro [roadmap](https://github.com/Owez/torro/issues/20)
+//! for future plans.
 //!
 //! ## Final notes
 //!
