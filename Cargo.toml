@@ -2,6 +2,7 @@
 name = "torro"
 description = "A correct and easy-to-use BitTorrent library"
 repository = "https://github.com/owez/torro"
+license = "MIT"
 version = "0.0.0-pre.1"
 authors = ["Owez <root@ogriffiths.com>"]
 edition = "2018"
