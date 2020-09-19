@@ -8,6 +8,7 @@ use std::path::PathBuf;
 ///
 /// All module-specific errors have a [From] trait implemented by default for
 /// this [TorroError] and are required to have at least the `Debug` derive added
+#[non_exhaustive]
 #[derive(Debug, PartialEq, Clone)]
 pub enum TorroError {
     /// An error relating to the [crate::bencode] module
