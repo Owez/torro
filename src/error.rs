@@ -8,6 +8,7 @@ use std::path::PathBuf;
 ///
 /// All module-specific errors have a [From] trait implemented by default for
 /// this [TorroError] and are required to have at least the `Debug` derive added
+#[non_exhaustive]
 #[derive(Debug, PartialEq, Clone)]
 pub enum TorroError {
     /// An error relating to the [crate::bencode] module
@@ -50,57 +51,57 @@ pub enum TorrentCreationError {
     /// When the given `announce` key was given the wrong type. The
     /// `announce` key should be a bytestring (e.g.
     /// [Bencode::ByteString](crate::bencode::Bencode::ByteString))
-    AnnounceWrongType(crate::bencode::Bencode),
+    AnnounceWrongType,
 
     /// When the given `info` key was given the wrong type. The
     /// `info` key should be a dictionary (e.g.
     /// [Bencode::Dict](crate::bencode::Bencode::Dict))
-    InfoWrongType(crate::bencode::Bencode),
+    InfoWrongType,
 
     /// When the given `piece length` key was given the wrong type. The `piece length` key
     /// should be an integer (e.g. [Bencode::Int](crate::bencode::Bencode::Int))
     ///
     /// Not to be confused with [TorrentCreationError::PiecesWrongType]
-    PieceLengthWrongType(crate::bencode::Bencode),
+    PieceLengthWrongType,
 
     /// When the given `pieces` key was given the wrong type. The `pieces` key
     /// should be a bytestring (e.g.
     /// [Bencode::ByteString](crate::bencode::Bencode::ByteString))
     ///
     /// Not to be confused with [TorrentCreationError::PieceLengthWrongType]
-    PiecesWrongType(crate::bencode::Bencode),
+    PiecesWrongType,
 
     /// When the given `name` key was given the wrong type. The `name` key should
     /// be a bytestring (e.g. [Bencode::ByteString](crate::bencode::Bencode::ByteString))
-    NameWrongType(crate::bencode::Bencode),
+    NameWrongType,
 
     /// When a/the given `length` key was given the wrong type. The `length` key
     /// should be an integer (e.g. [Bencode::Int](crate::bencode::Bencode::Int))
-    LengthWrongType(crate::bencode::Bencode),
+    LengthWrongType,
 
     /// When the given `announce` key was given the wrong type. The
     /// `announce` key should be a dictionary (e.g.
     /// [Bencode::Dict](crate::bencode::Bencode::Dict))
     ///
     /// Not to be confused with [TorrentCreationError::FileWrongType]
-    FilesWrongType(crate::bencode::Bencode),
+    FilesWrongType,
 
     /// When an element in the `files` list was not a bencoded dictionary (e.g.
     /// [Bencode::Dict](crate::bencode::Bencode::Dict))
     ///
     /// Not to be confused with [TorrentCreationError::FilesWrongType]
-    FileWrongType(crate::bencode::Bencode),
+    FileWrongType,
 
     /// When the `path` key in an element of the `files` list was given the
     /// wrong type. The `path` key should be a list (e.g.
     /// [Bencode::List](crate::bencode::Bencode::List))
-    PathWrongType(crate::bencode::Bencode),
+    PathWrongType,
 
     /// When a subdirectory inside of a `path` key in an element of the `files`
     /// list was given the wrong type. All subdirectory elements inside the `path`
     /// key should be bytestrings (e.g.
     /// [Bencode::ByteString](crate::bencode::Bencode::ByteString))
-    SubdirWrongType(crate::bencode::Bencode),
+    SubdirWrongType,
 
     /// [Torrent](crate::torrent::Torrent) requires an `announce` key inside
     /// the top-level dictionary but it wasn't found
