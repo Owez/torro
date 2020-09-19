@@ -86,11 +86,7 @@ fn get_dict_item(
 /// `Result<String, error::TorrentCreationError>` for simplified `.into()`/`?`
 /// error processing
 fn vecu8_to_string(input: Vec<u8>) -> Result<String, error::TorrentCreationError> {
-    // TODO: better solution then `.clone()`
-    match String::from_utf8(input.clone()) {
-        Ok(value) => Ok(value),
-        Err(_) => Err(error::TorrentCreationError::BadUTF8String(input)),
-    }
+    String::from_utf8(input.clone()).map_err(|_| error::TorrentCreationError::BadUTF8String(input))
 }
 
 /// Makes a new element for [TorrentFile::MultiFile] from given unparsed, raw
@@ -165,11 +161,16 @@ impl Torrent {
                             return Err(error::TorrentCreationError::PieceWrongType(other).into())
                         }
                     },
-                };
+                } as usize;
                 let pieces_raw = match get_dict_item(&info_dict, TorrentBencodeKey::Pieces)? {
                     Bencode::ByteString(found_pieces_raw) => found_pieces_raw,
                     other => return Err(error::TorrentCreationError::PiecesWrongType(other).into()),
                 };
+                let pieces: Vec<Vec<u8>> = pieces_raw
+                    .as_slice()
+                    .chunks(20)
+                    .map(|c| c.to_vec())
+                    .collect();
                 let name = match get_dict_item(&info_dict, TorrentBencodeKey::Name)? {
                     Bencode::ByteString(found_name) => vecu8_to_string(found_name)?,
                     other => return Err(error::TorrentCreationError::NameWrongType(other).into()),
@@ -215,7 +216,13 @@ impl Torrent {
                     return Err(error::TorrentCreationError::NoLengthFiles.into());
                 };
 
-                Err(error::TorroError::Unimplemented) // TODO: finish
+                Ok(Self {
+                    announce,
+                    name,
+                    piece,
+                    pieces,
+                    file_structure,
+                })
             }
             _ => Err(error::TorrentCreationError::NoTLDictionary.into()),
         }

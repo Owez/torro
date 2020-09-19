@@ -45,6 +45,40 @@ pub enum Bencode {
     Int(i64),
 }
 
+impl Bencode {
+    /// [Bencode::Dict] exposing method
+    pub fn dict(self) -> Option<BTreeMap<Vec<u8>, Bencode>> {
+        match self {
+            Bencode::Dict(dict) => Some(dict),
+            _ => None,
+        }
+    }
+
+    /// [Bencode::List] exposing method
+    pub fn list(self) -> Option<Vec<Bencode>> {
+        match self {
+            Bencode::List(list) => Some(list),
+            _ => None,
+        }
+    }
+
+    /// [Bencode::ByteString] exposing method
+    pub fn bytestring(self) -> Option<Vec<u8>> {
+        match self {
+            Bencode::ByteString(bytestring) => Some(bytestring),
+            _ => None,
+        }
+    }
+
+    /// [Bencode::Int] exposing method
+    pub fn int(self) -> Option<i64> {
+        match self {
+            Bencode::Int(int) => Some(int),
+            _ => None,
+        }
+    }
+}
+
 /// Steps over `bytes` until `stop_byte` is met or EOF (in which case
 /// [Err]([BencodeError::UnexpectedEOF]) is given). Does not return last element
 /// which is equivalent to `stop_byte`

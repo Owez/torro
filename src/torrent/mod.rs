@@ -56,7 +56,7 @@ pub struct Torrent {
     /// ```none
     /// The URL of the tracker.
     /// ```
-    pub announce_url: String,
+    pub announce: String,
 
     /// Advised save name for torrent once leeched, is use by torro by default
     /// but may be changed
