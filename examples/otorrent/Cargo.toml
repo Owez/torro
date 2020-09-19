@@ -1,0 +1,11 @@
+[package]
+name = "otorrent"
+description = "A tiny cli-based torrent client built ontop of torro"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies.torro]
+path = "../../"
+
+[dependencies]
+climake = "2.1.0-pre.1"
