@@ -11,17 +11,9 @@
 //!
 //! ## Development/Production Status
 //!
-//! Heavily work-in-progress with only `.torrent` (bencode) parsing currently
-//! supported. You may contribute [here](https://github.com/owez/torro) if you'd
-//! like.
-//!
-//! ## First steps
-//!
-//! 1. You should first create a torrent structure by inputting a `.torrent` file
-//! formatted as `Vec<u8>` into [Torrent::new](crate::torrent::Torrent::new) or by
-//! passing a `.torrent` file to [Torrent::from_file](crate::torrent::Torrent::from_file)
-//! 2. Once you have a [Torrent](crate::torrent::Torrent) struct, you have access
-//! to other parts of torro like **`COMING SOON`** or **`COMING SOON`**.
+//! Actively developed but heavily work-in-progress with only `.torrent` to
+//! Torrent user-friendly struct currently fully supported, see the torro
+//! [roadmap](https://github.com/Owez/torro/issues/20) for future plans.
 //!
 //! ## Final notes
 //!

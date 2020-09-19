@@ -11,4 +11,4 @@ A **correct** and **easy-to-use** BitTorrent library
 
 ## Development/Production Status
 
-Heavily work-in-progress with only `.torrent` (bencode) parsing currently supported. You may contribute [here](https://github.com/owez/torro) if you'd like.
+Actively developed but heavily work-in-progress with only `.torrent` to Torrent user-friendly struct currently fully supported, see the torro [roadmap](https://github.com/Owez/torro/issues/20) for future plans.
