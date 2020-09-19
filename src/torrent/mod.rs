@@ -75,13 +75,13 @@ pub struct Torrent {
     /// # BitTorrent Description
     ///
     /// ```none
-    /// `piece` length maps to the number of bytes in each piece the file is split
+    /// `piece length` maps to the number of bytes in each piece the file is split
     /// into. For the purposes of transfer, files are split into fixed-size pieces
     /// which are all the same length except for possibly the last one which may
     /// be truncated. piece length is almost always a power of two, most commonly
     /// 2 18 = 256 K (BitTorrent prior to version 3.2 uses 2 20 = 1 M as default).
     /// ```
-    pub piece: usize,
+    pub piece_length: usize,
 
     /// A vector of SHA hashes corrosponding to each [Torrent::piece]
     ///
