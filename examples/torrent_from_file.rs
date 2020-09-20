@@ -5,7 +5,7 @@ use torro::torrent::Torrent;
 
 fn main() {
     let file_path = PathBuf::from("example.torrent");
-    let my_tourent = Torrent::from_file(file_path).unwrap();
+    let my_torrent = Torrent::from_file(file_path).unwrap();
 
     println!("Torrent name: '{}'", my_torrent.name);
 }
