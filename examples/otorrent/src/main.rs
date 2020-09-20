@@ -73,7 +73,7 @@ fn make_torrent(file: PathBuf) -> Torrent {
 /// Entry function for torrent files passed in from user
 fn do_torrent_file(got_arg: UsedArg) {
     let torrent_file = match got_arg.passed_data {
-        PassedData::File(file_vec) => {
+        PassedData::Files(file_vec) => {
             if file_vec.len() == 0 {
                 error_exit("Please provide a file alongside the torrent argument!".into())
             // shouldn't happen
@@ -106,7 +106,7 @@ fn main() {
         &['t'],
         &["torrent"],
         Some("A .torrent file to download from"),
-        DataType::File,
+        DataType::Files,
     )
     .unwrap();
 
