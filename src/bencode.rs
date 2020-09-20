@@ -251,8 +251,21 @@ fn get_next(
 /// Parses provided `Vec<u8>` input into a [Bencode] that contains the entirety of
 /// the parsed bencode file
 ///
-/// Please see [Torrent](crate::torrent::Torrent) if you are searching for a
-/// fully-complete torrent representation
+/// *Please see [Torrent](crate::torrent::Torrent) if you are searching for a
+/// fully-complete torrent representation*
+///
+/// # Examples
+///
+/// ```rust
+/// use torro::bencode;
+///
+/// fn main() {
+///     let data = "d5:hello6:there!e".as_bytes().to_vec(); // &str -> Vec<u8>
+///     let got_bencode = bencode::parse(data).unwrap(); // see BencodeError for error handling
+///
+///     println!("got_bencode: {:#?}", got_bencode);
+/// }
+/// ```
 pub fn parse(data: Vec<u8>) -> Result<Bencode, BencodeError> {
     if data.len() == 0 {
         return Err(BencodeError::EmptyFile);
