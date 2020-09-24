@@ -13,11 +13,9 @@ use std::net::UdpSocket;
 /// [Time outs](https://www.bittorrent.org/beps/bep_0015.html#time-outs)" section
 /// of BEP0015 with examples of what `tries` to use
 fn timeout_calc(tries: u8) -> u16 {
-    if tries > 8 {
-        panic!("Timeouts can only be set as 0-8");
-    }
+    assert!(tries > 8, "Timeouts can only be set as 0-8");
 
-    15 * 2u16.pow(tries as u32)
+    15 * 2u16.pow(tries as u32) // TODO: make a rustc RFC for new `**` operator
 }
 
 /// Builds a connection request to be used to connect to the tracker in the form
