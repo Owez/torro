@@ -38,7 +38,10 @@
 //! ```
 
 mod impl_bencode;
+mod impl_download;
+
 pub use impl_bencode::*;
+pub use impl_download::*;
 
 /// Represents the overall torrent directory structure for a given [Torrent]
 ///

@@ -7,10 +7,10 @@ use crate::error::TorroError;
 
 impl Torrent {
     /// Downloads given torrent to the defined file/directory ([Torrent::file_path])
-    #[warn(unstable)]
     pub fn download(&self) -> Result<(), TorroError> {
-        // TODO: finish
-        unimplemented!();
+        let tracker_info = self.get_tracker_info();
+
+        unimplemented!(); // TODO: finish
     }
     
     /// Gets tracker infomation from [torro::tracker_udp] (or similar)
