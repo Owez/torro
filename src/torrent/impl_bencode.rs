@@ -115,11 +115,10 @@ fn make_multifile(file_raw: Bencode) -> Result<(usize, Vec<String>), TorrentCrea
 }
 
 impl Torrent {
-    /// Creates a new [Torrent] from given `torrent_data` formatted as [Vec]<[u8]>
+    /// Creates a new [Torrent] from given `torrent_data` formatted as `Vec<u8>`
     ///
-    /// If an error is encountered, it will be a
-    /// [TorrentCreationError](TorrentCreationError) wrapped inside of
-    /// [TorroError::TorrentCreationError](TorroError::TorrentCreationError)
+    /// If an error is encountered, it will be a [TorrentCreationError] wrapped
+    /// inside of [TorroError::TorrentCreationError]
     pub fn new(torrent_data: Vec<u8>) -> Result<Self, TorroError> {
         let parsed_bencode = bencode::parse(torrent_data)?;
 

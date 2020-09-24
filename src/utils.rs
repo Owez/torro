@@ -6,7 +6,7 @@ use std::io::prelude::*;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Pseudorandom time-based 1 pass xorshift
+/// Pseudorandom 128-bit time-based 1 pass xorshift
 ///
 /// # Usage notice
 ///
@@ -15,7 +15,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 ///
 /// If this is used inside of a public ID, create a new one for each torrent,
 /// not a single id for entire lifetime of client
-pub fn randish() -> u128 {
+pub fn randish_128() -> u128 {
     let mut seed = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Time went backwards")
@@ -27,12 +27,12 @@ pub fn randish() -> u128 {
     seed << 5
 }
 
-/// Generates torro id using [randish]
+/// Generates torro id using [randish_128]
 ///
-/// **WARNING: THIS CAN LEAK CREATION TIME AND IS NOT SECURE, SEE [randish] FOR
+/// **WARNING: THIS CAN LEAK CREATION TIME AND IS NOT SECURE, SEE [randish_128] FOR
 /// MORE DETAILS**
 pub fn generate_torro_id() -> String {
-    let mut rand_num = format!("{}{}", CLIENT_PREFIX, randish());
+    let mut rand_num = format!("{}{}", CLIENT_PREFIX, randish_128());
 
     if rand_num.len() > 20 {
         rand_num.drain(20..);
@@ -66,11 +66,11 @@ mod tests {
     #[test]
     fn xorshift128_nodupe() {
         for _ in 0..100 {
-            let first_collect = randish();
+            let first_collect = randish_128();
 
             thread::sleep(time::Duration::from_millis(1));
 
-            assert_ne!(first_collect, randish());
+            assert_ne!(first_collect, randish_128());
         }
     }
 

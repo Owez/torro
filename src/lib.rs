@@ -27,6 +27,7 @@ mod utils;
 pub mod bencode;
 pub mod error;
 pub mod torrent;
+pub mod tracker_udp;
 
 /// [BitTorrent prefix](https://wiki.theory.org/BitTorrentSpecification#peer_id)
 /// for all torro-based clients.

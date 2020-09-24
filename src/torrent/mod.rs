@@ -3,7 +3,7 @@
 //!
 //! # Examples
 //!
-//! From a [PathBuf] file:
+//! From a file path:
 //!
 //! ```no_run
 //! use std::path::PathBuf;
