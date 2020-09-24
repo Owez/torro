@@ -199,7 +199,12 @@ impl From<TorrentCreationError> for TorroError {
 /// This type of error happens when torro could not properly connect to a tracker
 /// to maintain infomation
 #[derive(Debug, PartialEq, Clone)]
-pub enum TrackerError {}
+pub enum TrackerError {
+    /// An error occured relating to creating a udp socket to connect to the
+    /// tracker. The address used to try to connect is provided as a [String],
+    /// typically the [crate::tracker_udp::TORRO_BIND_ADDR] constant
+    SocketBind(&'static str)
+}
 
 impl From<TrackerError> for TorroError {
     fn from(error: TrackerError) -> Self {

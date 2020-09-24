@@ -2,9 +2,13 @@
 //! connection module, used primarily for
 //! [Torrent::download](crate::torrent::Torrent::download)
 
+use crate::error::TrackerError;
 use crate::utils::randish_128;
 use std::mem::size_of;
 use std::net::UdpSocket;
+
+/// The address typically used to bind a [UdpSocket] to for tracker connections
+pub const TORRO_BIND_ADDR: &str = "127.0.0.1:7667";
 
 /// The "magic constant" for connecting to the tracker. This is assumed to be the
 /// bittorrent protocol id designation
@@ -43,9 +47,7 @@ fn timeout_calc(tries: u8) -> u16 {
 /// 12      32-bit integer  transaction_id
 /// 16
 /// ```
-fn build_connect_req() -> [u8; 16] {
-    let transaction_id = randish_128() as u32;
-
+fn build_connect_req_buf(transaction_id: u32) -> [u8; 16] {
     let mut buf = [0x00; 16];
 
     buf[..size_of::<u64>()].copy_from_slice(&PROTOCOL_ID.to_be_bytes());
@@ -53,6 +55,40 @@ fn build_connect_req() -> [u8; 16] {
     buf[..size_of::<u32>()].copy_from_slice(&transaction_id.to_be_bytes());
 
     buf
+}
+
+// TODO: tell user not to use this and make an automated higher-level func for all tracker info needs
+// TODO: test
+/// A connection request to a tracker, the first low-level exchange to and from
+/// the client with the tracker
+pub struct ConnectReq {
+    /// Randomly-generated id that torro provides the tracker
+    transaction_id: u32,
+    /// The tracker-given connection id to reference for later use
+    connection_id: u64,
+}
+
+impl ConnectReq {
+    /// Sends a connection request from a given tracker `announce` URL and creates
+    /// a new [ConnectReq] from it or returns a [TrackerError]
+    ///
+    /// `bind_addr` is typically just passed as the [TORRO_BIND_ADDR] constant,
+    /// like so: `ConnectReq::send(TORRO_BIND_ADDR, something)`
+    pub fn send(bind_addr: &'static str, announce: String) -> Result<Self, TrackerError> {
+        let transaction_id = randish_128() as u32;
+        let mut connection_buf = &build_connect_req_buf(transaction_id);
+
+        let mut socket =
+            UdpSocket::bind(bind_addr).map_err(|_| TrackerError::SocketBind(bind_addr))?;
+
+        socket
+            .send_to(connection_buf, &announce)
+            .map_err(|_| TrackerError::SocketBind(bind_addr))?;
+
+        // TODO: recieve inbound req and restructure to loop for timeouts with [timeout_calc]
+
+        unimplemented!();
+    }
 }
 
 #[cfg(test)]
@@ -73,13 +109,13 @@ mod tests {
         timeout_calc(9);
     }
 
-    /// Tests that [build_connect_req] doesn't panic. This test is used as
+    /// Tests that [build_connect_req_buf] doesn't panic. This test is used as
     /// sometimes overflow safeguards are used but the function needs to convert
     /// (possibly very large) [u128] to [u32]
     #[test]
-    fn build_connect_req_stresstest() {
+    fn build_connect_req_buf_stresstest() {
         for _ in 0..100 {
-            build_connect_req();
+            build_connect_req_buf(randish_128() as u32);
         }
     }
 }
