@@ -286,6 +286,19 @@ pub fn parse(data: Vec<u8>) -> Result<Bencode, BencodeError> {
 }
 
 /// Alias to [parse] which allows a [u8] [slice](std::slice), e.g. &[[u8]]
+///
+/// # Examples
+///
+/// ```rust
+/// use torro::bencode;
+///
+/// fn main() {
+///     let data = "d5:hello6:there!e".as_bytes(); // &str -> &[u8]
+///     let got_bencode = bencode::parse_slice(data).unwrap(); // see BencodeError for error handling
+///
+///     println!("got_bencode: {:#?}", got_bencode);
+/// }
+/// ```
 pub fn parse_slice(data: &[u8]) -> Result<Bencode, BencodeError> {
     parse(data.to_vec())
 }
