@@ -19,6 +19,10 @@ pub enum TorroError {
     /// [Torrent::from_file](crate::torrent::Torrent::from_file))
     TorrentCreationError(TorrentCreationError),
 
+    /// An error relating to the [crate::tracker_udp] module (which is used inside
+    /// of [Torrent::download](crate::torrent::Torrent::download))
+    TrackerError(TrackerError),
+
     /// When an attemped file read failed, typically happens with
     /// [Torrent::from_file](crate::torrent::Torrent::from_file). See
     /// [TorroError::BadFileWrite] for errors related to file writes
@@ -33,6 +37,45 @@ pub enum TorroError {
     /// used for placeholder returns instead of the less graceful
     /// `unimplemented!()` macro
     Unimplemented,
+}
+
+/// Error enum for errors during parsing. If a [usize] is given, it typically
+/// represents last parsed byte's posision
+#[derive(Debug, PartialEq, Clone)]
+pub enum BencodeError {
+    /// When the file ends prematurely without stopping
+    UnexpectedEOF,
+
+    /// A character has been placed in an unexpected area, this occurs commonly
+    /// with integers that have a misc character. The first item in tuple
+    /// represents placement and second represents the unexpected byte
+    UnexpectedByte((usize, u8)),
+
+    /// An integer block was left empty, e.g. `ie`
+    NoIntGiven(usize),
+
+    /// Integer contains invalid (not 0-9) characters
+    InvalidInt(usize),
+
+    /// A `i-0e` was given (negative zero) which is not allowed by the spec
+    NegativeZero(usize),
+
+    /// Zeros where given before any significant number, e.g. `i002e`
+    LeadingZeros(usize),
+
+    /// No bencode data given
+    EmptyFile,
+
+    /// Bencode provided to bencode parser had multiple values given. Bencode is
+    /// only allowed to have 1 toplevel value, if you'd like more, use a list or
+    /// dict as the toplevel
+    MultipleValues,
+}
+
+impl From<BencodeError> for TorroError {
+    fn from(error: BencodeError) -> Self {
+        TorroError::BencodeError(error)
+    }
 }
 
 /// Error enum used inside of [Torrent::new](crate::torrent::Torrent::new) and
@@ -151,41 +194,15 @@ impl From<TorrentCreationError> for TorroError {
     }
 }
 
-/// Error enum for errors during parsing. If a [usize] is given, it typically
-/// represents last parsed byte's posision
+/// Error enum used inside of [Torrent::download](crate::torrent::Torrent::download)
+/// which extends from the [crate::tracker_udp] module (where it originates).
+/// This type of error happens when torro could not properly connect to a tracker
+/// to maintain infomation
 #[derive(Debug, PartialEq, Clone)]
-pub enum BencodeError {
-    /// When the file ends prematurely without stopping
-    UnexpectedEOF,
+pub enum TrackerError {}
 
-    /// A character has been placed in an unexpected area, this occurs commonly
-    /// with integers that have a misc character. The first item in tuple
-    /// represents placement and second represents the unexpected byte
-    UnexpectedByte((usize, u8)),
-
-    /// An integer block was left empty, e.g. `ie`
-    NoIntGiven(usize),
-
-    /// Integer contains invalid (not 0-9) characters
-    InvalidInt(usize),
-
-    /// A `i-0e` was given (negative zero) which is not allowed by the spec
-    NegativeZero(usize),
-
-    /// Zeros where given before any significant number, e.g. `i002e`
-    LeadingZeros(usize),
-
-    /// No bencode data given
-    EmptyFile,
-
-    /// Bencode provided to bencode parser had multiple values given. Bencode is
-    /// only allowed to have 1 toplevel value, if you'd like more, use a list or
-    /// dict as the toplevel
-    MultipleValues,
-}
-
-impl From<BencodeError> for TorroError {
-    fn from(error: BencodeError) -> Self {
-        TorroError::BencodeError(error)
+impl From<TrackerError> for TorroError {
+    fn from(error: TrackerError) -> Self {
+        TorroError::TrackerError(error)
     }
 }

@@ -2,7 +2,7 @@
 //!
 //! NOTE: Currently used as a placeholder module with many `unimplemented!()`
 
-use crate::error::TorroError;
+use crate::error::{TorroError, TrackerError};
 use crate::torrent::Torrent;
 // use crate::tracker_udp; // TODO: import
 
