@@ -1,41 +1,7 @@
 //! **Contains main [Torrent] structure used as a "key" to interact with other
 //! parts of torro**
 //!
-//! # Examples
-//!
-//! From a file path:
-//!
-//! ```no_run
-//! use std::path::PathBuf;
-//! use torro::torrent::Torrent;
-//!
-//! fn main() {
-//!     let file_path = PathBuf::from("example.torrent");
-//!     let my_torrent = Torrent::from_file(file_path).unwrap();
-//!
-//!     println!("my_torrent's values: {:#?}", my_torrent);
-//! }
-//! ```
-//!
-//! From raw torrent bytes:
-//!
-//! ```rust
-//! use torro::torrent::Torrent;
-//!
-//! fn main() {
-//!     let data = vec![
-//!         100, 56, 58, 97, 110, 110, 111, 117, 110, 99, 101, 48, 58, 52, 58, 105, 110, 102, 111, 100,
-//!         52, 58, 110, 97, 109, 101, 49, 50, 58, 116, 101, 115, 116, 95, 116, 111, 114, 114, 101,
-//!         110, 116, 49, 50, 58, 112, 105, 101, 99, 101, 32, 108, 101, 110, 103, 116, 104, 105, 48,
-//!         101, 54, 58, 112, 105, 101, 99, 101, 115, 48, 58, 54, 58, 108, 101, 110, 103, 116, 104,
-//!         105, 48, 101, 101, 101,
-//!     ];  // raw torrent bytes
-//!     let my_torrent = Torrent::new(data).unwrap();
-//!
-//!     println!("Torrent name: '{}'", my_torrent.name);
-//! }
-//!
-//! ```
+//! See [Torrent] and [TorrentFile] for more infomation
 
 mod impl_bencode;
 mod impl_download;
@@ -59,6 +25,12 @@ pub use impl_download::*;
 pub enum TorrentFile {
     /// A single file with a [usize] determining it's length in bytes (`1` in
     /// usize == 1 byte)
+    ///
+    /// # BitTorrent Description
+    ///
+    /// ```none
+    /// In the single file case, length maps to the length of the file in bytes.
+    /// ```
     Single(usize),
 
     /// Multiple files with a similar [usize] to [TorrentFile::Single] as the first
@@ -80,7 +52,44 @@ pub enum TorrentFile {
 /// like [bencode::parse](crate::bencode::parse). This representation is used to
 /// interact with many parts of torro.
 ///
-/// ## Documentation sourcing
+/// # Examples
+///
+/// #### Loading a `.torrent` file
+///
+/// From a file path:
+///
+/// ```no_run
+/// use std::path::PathBuf;
+/// use torro::torrent::Torrent;
+///
+/// fn main() {
+///     let file_path = PathBuf::from("example.torrent");
+///     let my_torrent = Torrent::from_file(file_path).unwrap();
+///
+///     println!("my_torrent's values: {:#?}", my_torrent);
+/// }
+/// ```
+///
+/// From raw torrent bytes:
+///
+/// ```rust
+/// use torro::torrent::Torrent;
+///
+/// fn main() {
+///     let data = vec![
+///         100, 56, 58, 97, 110, 110, 111, 117, 110, 99, 101, 48, 58, 52, 58, 105, 110, 102, 111, 100,
+///         52, 58, 110, 97, 109, 101, 49, 50, 58, 116, 101, 115, 116, 95, 116, 111, 114, 114, 101,
+///         110, 116, 49, 50, 58, 112, 105, 101, 99, 101, 32, 108, 101, 110, 103, 116, 104, 105, 48,
+///         101, 54, 58, 112, 105, 101, 99, 101, 115, 48, 58, 54, 58, 108, 101, 110, 103, 116, 104,
+///         105, 48, 101, 101, 101,
+///     ];  // raw torrent bytes
+///     let my_torrent = Torrent::new(data).unwrap();
+///
+///     println!("Torrent name: '{}'", my_torrent.name);
+/// }
+/// ```
+///
+/// # Documentation sourcing
 ///
 /// All "BitTorrent Description" headings are taken from
 /// [BEP0003](https://www.bittorrent.org/beps/bep_0003.html) and is subject to
