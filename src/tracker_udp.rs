@@ -63,9 +63,9 @@ fn build_connect_req_buf(transaction_id: u32) -> [u8; 16] {
 /// the client with the tracker
 pub struct ConnectReq {
     /// Randomly-generated id that torro provides the tracker
-    transaction_id: u32,
+    pub transaction_id: u32,
     /// The tracker-given connection id to reference for later use
-    connection_id: u64,
+    pub connection_id: u64,
 }
 
 impl ConnectReq {
@@ -74,6 +74,25 @@ impl ConnectReq {
     ///
     /// `bind_addr` is typically just passed as the [TORRO_BIND_ADDR] constant,
     /// like so: `ConnectReq::send(TORRO_BIND_ADDR, something)`
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use torro::tracker_udp::{TORRO_BIND_ADDR, ConnectReq};
+    ///
+    /// fn main() {
+    ///     let connection_details = ConnectReq::send(
+    ///         TORRO_BIND_ADDR,
+    ///         "htp+t\\p:\\/tracker-url-here.co.biz".to_string()
+    ///     ).unwrap();
+    ///     
+    ///     println!(
+    ///         "Transaction ID: {}\nConnection ID: {}",
+    ///         connection_details.transaction_id,
+    ///         connection_details.connection_id
+    ///     );
+    /// }
+    /// ```
     pub fn send(bind_addr: &'static str, announce: String) -> Result<Self, TrackerError> {
         let transaction_id = randish_128() as u32;
         let mut connection_buf = &build_connect_req_buf(transaction_id);
