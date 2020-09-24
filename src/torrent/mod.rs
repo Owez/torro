@@ -1,5 +1,5 @@
-//! Contains main [Torrent] structure used as a "key" to interact with other parts
-//! of torro
+//! **Contains main [Torrent] structure used as a "key" to interact with other
+//! parts of torro**
 //!
 //! # Examples
 //!
