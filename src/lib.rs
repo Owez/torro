@@ -15,12 +15,6 @@
 //! user-friendly [Torrent](crate::torrent::Torrent) struct currently fully
 //! supported, see the torro [roadmap](https://github.com/Owez/torro/issues/20)
 //! for future plans.
-//!
-//! ## Final notes
-//!
-//! - If you wish to use torro without using the [Torrent](crate::torrent::Torrent)
-//! structure, you may use the publically exposed lower-level functions that are
-//! not attached to it (like [bencode::parse] for example)
 
 mod utils;
 
