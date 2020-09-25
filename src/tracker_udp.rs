@@ -5,7 +5,6 @@
 use crate::error::TrackerError;
 use crate::utils::randish_128;
 use std::convert::TryInto;
-use std::mem::size_of;
 use std::net::UdpSocket;
 
 /// The address typically used to bind a [UdpSocket] to for tracker connections
@@ -51,9 +50,9 @@ fn timeout_calc(tries: u8) -> u16 {
 fn build_connect_req_buf(transaction_id: i32) -> [u8; 16] {
     let mut buf = [0x00; 16];
 
-    buf[..size_of::<i64>()].copy_from_slice(&PROTOCOL_ID.to_be_bytes());
-    buf[..size_of::<i32>()].copy_from_slice(&0i32.to_be_bytes());
-    buf[..size_of::<i32>()].copy_from_slice(&transaction_id.to_be_bytes());
+    buf[0..8].copy_from_slice(&PROTOCOL_ID.to_be_bytes());
+    buf[8..12].copy_from_slice(&0i32.to_be_bytes());
+    buf[12..16].copy_from_slice(&transaction_id.to_be_bytes());
 
     buf
 }
@@ -75,7 +74,7 @@ impl ConnectReq {
     ///
     /// If this method returns an [Option::None], this means the given `resp_buf`
     /// wasn't intended for the transaction
-    pub fn from_resp_buf(transaction_id: i32, resp_buf: [u8; 16]) -> Option<Self> { // FIXME
+    pub fn from_resp_buf(transaction_id: i32, resp_buf: [u8; 16]) -> Option<Self> {
         let unconf_action = i32::from_be_bytes(resp_buf[0..4].try_into().unwrap());
         let unconf_trans_id = i32::from_be_bytes(resp_buf[4..8].try_into().unwrap());
         let connection_id = i64::from_be_bytes(resp_buf[8..16].try_into().unwrap());
@@ -177,11 +176,11 @@ mod tests {
         const TRANSACTION_ID: i32 = 94945;
         const CONNECT_ID: i64 = 342432;
 
-        let mut resp_buf = [0x00; 16];
+        let mut resp_buf = [0; 16];
 
-        resp_buf[..size_of::<i32>()].copy_from_slice(&0i32.to_be_bytes());
-        resp_buf[..size_of::<i32>()].copy_from_slice(&TRANSACTION_ID.to_be_bytes());
-        resp_buf[..size_of::<i64>()].copy_from_slice(&CONNECT_ID.to_be_bytes());
+        resp_buf[0..4].copy_from_slice(&0i32.to_be_bytes());
+        resp_buf[4..8].copy_from_slice(&TRANSACTION_ID.to_be_bytes());
+        resp_buf[8..16].copy_from_slice(&CONNECT_ID.to_be_bytes());
 
         let connect_req = ConnectReq::from_resp_buf(TRANSACTION_ID, resp_buf).unwrap();
 
