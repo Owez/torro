@@ -1,7 +1,7 @@
 //! Ensures that [Torrent::from_file] can properly read a `.torrent` file
 
 use std::path::PathBuf;
-use torro::torrent::Torrent;
+use torro::Torrent;
 
 const DATA_PATH_PREFIX: &str = "./tests/data/";
 

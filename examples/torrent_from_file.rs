@@ -1,7 +1,7 @@
 //! A small example of making an interactable `Torrent` structure from a path
 
 use std::path::PathBuf;
-use torro::torrent::Torrent;
+use torro::Torrent;
 
 fn main() {
     let file_path = PathBuf::from("example.torrent");

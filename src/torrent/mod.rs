@@ -1,5 +1,5 @@
-//! **Contains main [Torrent] structure used as a "key" to interact with other
-//! parts of torro**
+//! Contains main [Torrent] structure used as a "key" to interact with other
+//! parts of torro. Re-exported for convinience
 //!
 //! See [Torrent] and [TorrentFile] for more infomation
 
@@ -60,7 +60,7 @@ pub enum TorrentFile {
 ///
 /// ```no_run
 /// use std::path::PathBuf;
-/// use torro::torrent::Torrent;
+/// use torro::Torrent;
 ///
 /// fn main() {
 ///     let file_path = PathBuf::from("example.torrent");
@@ -73,7 +73,7 @@ pub enum TorrentFile {
 /// From raw torrent bytes:
 ///
 /// ```rust
-/// use torro::torrent::Torrent;
+/// use torro::Torrent;
 ///
 /// fn main() {
 ///     let data = vec![

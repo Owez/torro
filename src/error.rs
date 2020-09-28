@@ -14,17 +14,17 @@ pub enum TorroError {
     /// An error relating to the [crate::bencode] module
     BencodeError(BencodeError),
 
-    /// An error relating to the creation of [Torrent](crate::torrent::Torrent)'s
-    /// (from [Torrent::new](crate::torrent::Torrent::new) or
-    /// [Torrent::from_file](crate::torrent::Torrent::from_file))
+    /// An error relating to the creation of [Torrent](crate::Torrent)'s
+    /// (from [Torrent::new](crate::Torrent::new) or
+    /// [Torrent::from_file](crate::Torrent::from_file))
     TorrentCreationError(TorrentCreationError),
 
     /// An error relating to the [crate::tracker_udp] module (which is used inside
-    /// of [Torrent::download](crate::torrent::Torrent::download))
+    /// of [Torrent::download](crate::Torrent::download))
     TrackerError(TrackerError),
 
     /// When an attemped file read failed, typically happens with
-    /// [Torrent::from_file](crate::torrent::Torrent::from_file). See
+    /// [Torrent::from_file](crate::Torrent::from_file). See
     /// [TorroError::BadFileWrite] for errors related to file writes
     BadFileRead(PathBuf),
 
@@ -78,9 +78,9 @@ impl From<BencodeError> for TorroError {
     }
 }
 
-/// Error enum used inside of [Torrent::new](crate::torrent::Torrent::new) and
-/// [Torrent::from_file](crate::torrent::Torrent::from_file). These errors relate
-/// to the creation of new [Torrent](crate::torrent::Torrent) structures
+/// Error enum used inside of [Torrent::new](crate::Torrent::new) and
+/// [Torrent::from_file](crate::Torrent::from_file). These errors relate
+/// to the creation of new [Torrent](crate::Torrent) structures
 #[derive(Debug, PartialEq, Clone)]
 pub enum TorrentCreationError {
     /// BEP0003 dictates that the toplevel of a bencoded `.torrent` file should
@@ -146,27 +146,27 @@ pub enum TorrentCreationError {
     /// [Bencode::ByteString](crate::bencode::Bencode::ByteString))
     SubdirWrongType,
 
-    /// [Torrent](crate::torrent::Torrent) requires an `announce` key inside
+    /// [Torrent](crate::Torrent) requires an `announce` key inside
     /// the top-level dictionary but it wasn't found
     NoAnnounceFound,
 
-    /// [Torrent](crate::torrent::Torrent) requires an `info` key inside
+    /// [Torrent](crate::Torrent) requires an `info` key inside
     /// the top-level dictionary but it wasn't found
     NoInfoFound,
 
-    /// [Torrent](crate::torrent::Torrent) requires a `piece length` key inside the
+    /// [Torrent](crate::Torrent) requires a `piece length` key inside the
     /// `info` dictionary but it wasn't found
     ///
     /// Not to be confused with [TorrentCreationError::NoPiecesFound]
     NoPieceLengthFound,
 
-    /// [Torrent](crate::torrent::Torrent) requires a `pieces` key inside the
+    /// [Torrent](crate::Torrent) requires a `pieces` key inside the
     /// info dictionary but it wasn't found
     ///
     /// Not to be confused with [TorrentCreationError::NoPieceLengthFound]
     NoPiecesFound,
 
-    /// [Torrent](crate::torrent::Torrent) requires a `name` key inside
+    /// [Torrent](crate::Torrent) requires a `name` key inside
     /// the info dictionary but it wasn't found
     NoNameFound,
 
@@ -194,7 +194,7 @@ impl From<TorrentCreationError> for TorroError {
     }
 }
 
-/// Error enum used inside of [Torrent::download](crate::torrent::Torrent::download)
+/// Error enum used inside of [Torrent::download](crate::Torrent::download)
 /// which extends from the [crate::tracker_udp] module (where it originates).
 /// This type of error happens when torro could not properly connect to a tracker
 /// to maintain infomation

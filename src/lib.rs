@@ -12,7 +12,7 @@
 //! ## Development/Production Status
 //!
 //! Actively developed but heavily work-in-progress with only `.torrent` to
-//! user-friendly [Torrent](crate::torrent::Torrent) struct currently fully
+//! user-friendly [Torrent](crate::Torrent) struct currently fully
 //! supported, see the torro [roadmap](https://github.com/Owez/torro/issues/20)
 //! for future plans.
 
@@ -22,6 +22,8 @@ pub mod bencode;
 pub mod error;
 pub mod torrent;
 pub mod tracker_udp;
+
+pub use torrent::*;
 
 /// [BitTorrent prefix](https://wiki.theory.org/BitTorrentSpecification#peer_id)
 /// for all torro-based clients.

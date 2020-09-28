@@ -1,6 +1,6 @@
 //! A [BEP0015](https://www.bittorrent.org/beps/bep_0015.html)-conforming tracker
 //! connection module, used primarily for
-//! [Torrent::download](crate::torrent::Torrent::download)
+//! [Torrent::download](crate::Torrent::download)
 
 use crate::error::TrackerError;
 use crate::utils::randish_128;

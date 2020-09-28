@@ -46,7 +46,7 @@ pub fn generate_torro_id() -> String {
 /// Gets bytes from given `file` &[PathBuf] or returns a [std::io::Error]
 ///
 /// A reference is used for `file` for optimisations with
-/// [torrent::Torrent::from_file]'s passed [PathBuf]
+/// [Torrent::from_file]'s passed [PathBuf]
 pub fn read_file_bytes(file: &PathBuf) -> Result<Vec<u8>, std::io::Error> {
     let mut file = File::open(file)?;
     let mut contents = vec![];

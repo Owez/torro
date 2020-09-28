@@ -1,4 +1,4 @@
-use torro::torrent::Torrent;
+use torro::Torrent;
 
 fn main() {
     let data = vec![
