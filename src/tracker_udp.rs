@@ -4,7 +4,7 @@
 
 use crate::error::TrackerError;
 use crate::utils::randish_128;
-use std::mem::size_of;
+use std::convert::TryInto;
 use std::net::UdpSocket;
 
 /// The address typically used to bind a [UdpSocket] to for tracker connections
@@ -47,12 +47,12 @@ fn timeout_calc(tries: u8) -> u16 {
 /// 12      32-bit integer  transaction_id
 /// 16
 /// ```
-fn build_connect_req_buf(transaction_id: u32) -> [u8; 16] {
+fn build_connect_req_buf(transaction_id: i32) -> [u8; 16] {
     let mut buf = [0x00; 16];
 
-    buf[..size_of::<u64>()].copy_from_slice(&PROTOCOL_ID.to_be_bytes());
-    buf[..size_of::<u32>()].copy_from_slice(&0u32.to_be_bytes());
-    buf[..size_of::<u32>()].copy_from_slice(&transaction_id.to_be_bytes());
+    buf[0..8].copy_from_slice(&PROTOCOL_ID.to_be_bytes());
+    buf[8..12].copy_from_slice(&0i32.to_be_bytes());
+    buf[12..16].copy_from_slice(&transaction_id.to_be_bytes());
 
     buf
 }
@@ -63,12 +63,32 @@ fn build_connect_req_buf(transaction_id: u32) -> [u8; 16] {
 /// the client with the tracker
 pub struct ConnectReq {
     /// Randomly-generated id that torro provides the tracker
-    pub transaction_id: u32,
+    pub transaction_id: i32,
     /// The tracker-given connection id to reference for later use
-    pub connection_id: u64,
+    pub connection_id: i64,
 }
 
 impl ConnectReq {
+    /// Creates a new [ConnectReq] struct from a pre-fetched response buffer. The
+    /// typical way to use [ConnectReq] is to use [ConnectReq::send]
+    ///
+    /// If this method returns an [Option::None], this means the given `resp_buf`
+    /// wasn't intended for the transaction
+    pub fn from_resp_buf(transaction_id: i32, resp_buf: [u8; 16]) -> Option<Self> {
+        let unconf_action = i32::from_be_bytes(resp_buf[0..4].try_into().unwrap());
+        let unconf_trans_id = i32::from_be_bytes(resp_buf[4..8].try_into().unwrap());
+        let connection_id = i64::from_be_bytes(resp_buf[8..16].try_into().unwrap());
+
+        if unconf_action != 0 || unconf_trans_id != transaction_id {
+            None
+        } else {
+            Some(Self {
+                transaction_id,
+                connection_id,
+            })
+        }
+    }
+
     /// Sends a connection request from a given tracker `announce` URL and creates
     /// a new [ConnectReq] from it or returns a [TrackerError]
     ///
@@ -94,19 +114,31 @@ impl ConnectReq {
     /// }
     /// ```
     pub fn send(bind_addr: &'static str, announce: String) -> Result<Self, TrackerError> {
-        let transaction_id = randish_128() as u32;
-        let mut connection_buf = &build_connect_req_buf(transaction_id);
+        let transaction_id = randish_128() as i32;
+        let connection_buf = &build_connect_req_buf(transaction_id);
 
-        let mut socket =
-            UdpSocket::bind(bind_addr).map_err(|_| TrackerError::SocketBind(bind_addr))?;
+        let socket =
+            UdpSocket::bind(bind_addr).map_err(|_| TrackerError::BadSocketBind(bind_addr))?;
 
         socket
             .send_to(connection_buf, &announce)
-            .map_err(|_| TrackerError::SocketBind(bind_addr))?;
+            .map_err(|_| TrackerError::BadSocketBind(bind_addr))?;
 
-        // TODO: recieve inbound req and restructure to loop for timeouts with [timeout_calc]
+        // TODO: detect spoofs from src_addr
+        // TODO: timeouts
 
-        unimplemented!();
+        loop {
+            let mut resp_buf: [u8; 16] = [0; 16];
+
+            let (byte_count, src_addr) = socket
+                .recv_from(&mut resp_buf)
+                .map_err(|_| TrackerError::BadConnectRecieve)?;
+
+            match ConnectReq::from_resp_buf(transaction_id, resp_buf) {
+                Some(connect_req) => return Ok(connect_req),
+                None => continue,
+            }
+        }
     }
 }
 
@@ -134,7 +166,25 @@ mod tests {
     #[test]
     fn build_connect_req_buf_stresstest() {
         for _ in 0..100 {
-            build_connect_req_buf(randish_128() as u32);
+            build_connect_req_buf(randish_128() as i32);
         }
+    }
+
+    /// Tests that [ConnectReq::from_resp_buf] works as expected
+    #[test]
+    fn try_from_resp_buf() {
+        const TRANSACTION_ID: i32 = 94945;
+        const CONNECT_ID: i64 = 342432;
+
+        let mut resp_buf = [0; 16];
+
+        resp_buf[0..4].copy_from_slice(&0i32.to_be_bytes());
+        resp_buf[4..8].copy_from_slice(&TRANSACTION_ID.to_be_bytes());
+        resp_buf[8..16].copy_from_slice(&CONNECT_ID.to_be_bytes());
+
+        let connect_req = ConnectReq::from_resp_buf(TRANSACTION_ID, resp_buf).unwrap();
+
+        assert_eq!(connect_req.transaction_id, TRANSACTION_ID);
+        assert_eq!(connect_req.connection_id, CONNECT_ID);
     }
 }

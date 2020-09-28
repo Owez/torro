@@ -203,7 +203,11 @@ pub enum TrackerError {
     /// An error occured relating to creating a udp socket to connect to the
     /// tracker. The address used to try to connect is provided as a [String],
     /// typically the [crate::tracker_udp::TORRO_BIND_ADDR] constant
-    SocketBind(&'static str)
+    BadSocketBind(&'static str),
+
+    /// After sending a connection request to the tracker, torro occured an error
+    /// when trying to recieve a response from the tracker
+    BadConnectRecieve
 }
 
 impl From<TrackerError> for TorroError {
