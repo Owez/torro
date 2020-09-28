@@ -207,7 +207,17 @@ pub enum TrackerError {
 
     /// After sending a connection request to the tracker, torro occured an error
     /// when trying to recieve a response from the tracker
-    BadConnectRecieve
+    BadConnectRecieve,
+
+    /// An invalid UDP address that was given to [crate::tracker_udp::ConnectReq],
+    /// with the attached [String] being said invalid address
+    BadUdpAddr(String),
+
+    /// A [crate::tracker_udp]-based function (most likely the
+    /// [crate::tracker_udp::ConnectReq::send] method) was given a url that did
+    /// not start with `udp://`. [crate::tracker_udp] requires a valid UDP tracker
+    /// with a valid UDP url to work
+    UdpUrlRequried(String),
 }
 
 impl From<TrackerError> for TorroError {

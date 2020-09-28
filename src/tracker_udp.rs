@@ -1,11 +1,10 @@
-//! A [BEP0015](https://www.bittorrent.org/beps/bep_0015.html)-conforming tracker
-//! connection module, used primarily for
-//! [Torrent::download](crate::torrent::Torrent::download)
-
+//! A [BEP0015](https://www.bittorrent.org/beps/bep_0015.html)-conforming UDP
+/// tracker connection module, used primarily for
+/// [Torrent::download](crate::torrent::Torrent::download)
 use crate::error::TrackerError;
 use crate::utils::randish_128;
 use std::convert::TryInto;
-use std::net::UdpSocket;
+use std::net::{SocketAddr, UdpSocket};
 
 /// The address typically used to bind a [UdpSocket] to for tracker connections
 pub const TORRO_BIND_ADDR: &str = "127.0.0.1:7667";
@@ -55,6 +54,21 @@ fn build_connect_req_buf(transaction_id: i32) -> [u8; 16] {
     buf[12..16].copy_from_slice(&transaction_id.to_be_bytes());
 
     buf
+}
+
+/// Cleans up the `announce` url to just a hostname if provided a clean
+/// `udp://`-starting url or errors as it's not a udp url with
+/// [TrackerError::UdpUrlRequried]
+pub fn announce_url_clean<'a, T: Into<String>>(url: T) -> Result<String, TrackerError> {
+    const UDP_PREFIX: &str = "udp://";
+
+    let url_string = url.into();
+
+    if !url_string.starts_with(UDP_PREFIX) {
+        Err(TrackerError::UdpUrlRequried(url_string))
+    } else {
+        Ok(url_string.strip_prefix(UDP_PREFIX).unwrap().to_owned())
+    }
 }
 
 // TODO: tell user not to use this and make an automated higher-level func for all tracker info needs
@@ -114,17 +128,20 @@ impl ConnectReq {
     /// }
     /// ```
     pub fn send(bind_addr: &'static str, announce: String) -> Result<Self, TrackerError> {
-        let transaction_id = randish_128() as i32;
-        let connection_buf = &build_connect_req_buf(transaction_id);
+        let announce_socketaddr: SocketAddr = announce_url_clean(&announce)?
+            .parse()
+            .map_err(|_| TrackerError::BadUdpAddr(announce))?;
 
         let socket =
             UdpSocket::bind(bind_addr).map_err(|_| TrackerError::BadSocketBind(bind_addr))?;
 
+        let transaction_id = randish_128() as i32;
+        let connection_buf = &build_connect_req_buf(transaction_id);
+
         socket
-            .send_to(connection_buf, &announce)
+            .send_to(connection_buf, &announce_socketaddr)
             .map_err(|_| TrackerError::BadSocketBind(bind_addr))?;
 
-        // TODO: detect spoofs from src_addr
         // TODO: timeouts
 
         loop {
@@ -133,6 +150,10 @@ impl ConnectReq {
             let (byte_count, src_addr) = socket
                 .recv_from(&mut resp_buf)
                 .map_err(|_| TrackerError::BadConnectRecieve)?;
+
+            if byte_count != 16 || src_addr != announce_socketaddr {
+                continue; // not same sender or tiny byte_count
+            }
 
             match ConnectReq::from_resp_buf(transaction_id, resp_buf) {
                 Some(connect_req) => return Ok(connect_req),
@@ -186,5 +207,31 @@ mod tests {
 
         assert_eq!(connect_req.transaction_id, TRANSACTION_ID);
         assert_eq!(connect_req.connection_id, CONNECT_ID);
+    }
+
+    /// Tests that [announce_url_clean] works as expected
+    #[test]
+    fn try_announce_url_clean() {
+        assert_eq!(announce_url_clean("udp://hi.com"), Ok("hi.com".to_owned()));
+        assert_eq!(
+            announce_url_clean("hi.com"),
+            Err(TrackerError::UdpUrlRequried("hi.com".to_owned()))
+        );
+        assert_eq!(
+            announce_url_clean("http://hi.com"),
+            Err(TrackerError::UdpUrlRequried("http://hi.com".to_owned()))
+        );
+        assert_eq!(
+            announce_url_clean("https://hi.com"),
+            Err(TrackerError::UdpUrlRequried("https://hi.com".to_owned()))
+        );
+    }
+
+    /// Checks the full ability of [ConnectReq::send] using the Tails udp tracker
+    #[test]
+    fn send_fullcheck() {
+        const TAILS_TRACKER_ADDR: &str = "udp://tracker.torrent.eu.org:451";
+
+        ConnectReq::send(TORRO_BIND_ADDR, TAILS_TRACKER_ADDR.to_string()).unwrap();
     }
 }
