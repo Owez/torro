@@ -117,7 +117,7 @@ impl ConnectReq {
     /// fn main() {
     ///     let connection_details = ConnectReq::send(
     ///         TORRO_BIND_ADDR,
-    ///         "htp+t\\p:\\/tracker-url-here.co.biz".to_string()
+    ///         "tracker-url-here.co.biz".to_string()
     ///     ).unwrap();
     ///     
     ///     println!(
